@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}控制台 - 总管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h4>控制台</h4>
+        <div class="subtitle">欢迎回来, {{ current_user.name }}</div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge" style="background:rgba(212,175,55,0.12);color:var(--gold);font-size:0.8rem;padding:0.5em 1em;border-radius:8px">
+            <i class="bi bi-shield-check me-1"></i>管理员
+        </span>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-label">总代理数</div>
+                    <div class="stat-value">{{ total_agents }}</div>
+                </div>
+                <div class="stat-icon" style="background:rgba(102,126,234,0.12);color:#667eea">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-label">活跃代理</div>
+                    <div class="stat-value" style="color:var(--success)">{{ active_agents }}</div>
+                </div>
+                <div class="stat-icon" style="background:rgba(16,185,129,0.12);color:#10b981">
+                    <i class="bi bi-person-check-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-label">停用代理</div>
+                    <div class="stat-value" style="color:var(--danger)">{{ total_agents - active_agents }}</div>
+                </div>
+                <div class="stat-icon" style="background:rgba(239,68,68,0.12);color:#ef4444">
+                    <i class="bi bi-person-x-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-label">等级总数</div>
+                    <div class="stat-value" style="color:var(--gold)">{{ tier_stats|length }}</div>
+                </div>
+                <div class="stat-icon" style="background:rgba(212,175,55,0.12);color:var(--gold)">
+                    <i class="bi bi-award-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6>各等级分布</h6>
+                <a href="{{ url_for('admin_tiers') }}" class="btn btn-sm btn-outline-primary" style="font-size:0.78rem">
+                    管理等级 <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+            </div>
+            <div class="card-body">
+                {% for item in tier_stats %}
+                <div class="d-flex align-items-center mb-3 {% if not loop.last %}pb-3{% endif %}" {% if not loop.last %}style="border-bottom:1px solid var(--border-color)"{% endif %}>
+                    <img src="{{ url_for('static', filename='img/tiers/' + item.tier.icon_file) }}"
+                         style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid rgba(212,175,55,0.15)" class="me-3">
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="fw-bold" style="font-size:0.9rem">{{ item.tier.name }}</span>
+                            <span style="color:var(--text-secondary);font-size:0.82rem">
+                                {{ item.count }} <span style="color:var(--text-muted)">人</span>
+                            </span>
+                        </div>
+                        <div class="progress" style="height:6px">
+                            <div class="progress-bar" style="width:{{ (item.count / total_agents * 100) if total_agents > 0 else 0 }}%"></div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6>最近创建的代理</h6>
+                <a href="{{ url_for('admin_agents') }}" class="btn btn-sm btn-outline-primary" style="font-size:0.78rem">
+                    查看全部 <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+            </div>
+            <div class="card-body p-0">
+                {% for agent in recent_agents %}
+                <div class="d-flex align-items-center px-3 py-2.5" style="padding:0.7rem 1.25rem;{% if not loop.last %}border-bottom:1px solid var(--border-color);{% endif %}">
+                    {% if agent.tier %}
+                    <img src="{{ url_for('static', filename='img/tiers/' + agent.tier.icon_file) }}"
+                         style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:1px solid rgba(212,175,55,0.15)" class="me-3">
+                    {% else %}
+                    <div class="me-3" style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center">
+                        <i class="bi bi-person" style="color:var(--text-muted);font-size:0.9rem"></i>
+                    </div>
+                    {% endif %}
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="fw-bold text-truncate" style="font-size:0.85rem">{{ agent.name }}</div>
+                        <div style="font-size:0.75rem;color:var(--text-muted)">{{ agent.username }} · {{ agent.currency }}</div>
+                    </div>
+                    <small style="color:var(--text-muted);font-size:0.75rem;white-space:nowrap">{{ agent.created_at.strftime('%m-%d') }}</small>
+                </div>
+                {% endfor %}
+                {% if not recent_agents %}
+                <div class="text-center py-4" style="color:var(--text-muted)">暂无代理</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

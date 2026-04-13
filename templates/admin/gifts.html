@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}礼品管理 - 总管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h4>礼品管理</h4>
+        <div class="subtitle">管理积分兑换的礼品</div>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createGiftModal">
+        <i class="bi bi-plus-lg me-1"></i>添加礼品
+    </button>
+</div>
+
+<div class="row g-4">
+    {% for gift in gifts %}
+    <div class="col-md-6 col-xl-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="d-flex align-items-center gap-3">
+                        {% if gift.image_url %}
+                        <img src="{{ gift.image_url }}" style="width:56px;height:56px;border-radius:12px;object-fit:cover;border:1px solid var(--border-color)">
+                        {% else %}
+                        <div style="width:56px;height:56px;border-radius:12px;background:rgba(212,175,55,0.1);display:flex;align-items:center;justify-content:center">
+                            <i class="bi bi-gift-fill" style="font-size:1.5rem;color:var(--gold)"></i>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <h6 class="fw-bold mb-1">{{ gift.name }}</h6>
+                            {% if not gift.is_active %}
+                            <span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444;font-size:0.7rem">已下架</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <div style="font-size:1.4rem;font-weight:800;color:var(--gold)">{{ gift.points_required }}</div>
+                        <div style="font-size:0.72rem;color:var(--text-muted)">积分</div>
+                    </div>
+                </div>
+                {% if gift.description %}
+                <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.75rem">{{ gift.description }}</p>
+                {% endif %}
+                <div class="d-flex justify-content-between align-items-center">
+                    <span style="font-size:0.85rem;color:var(--text-muted)">
+                        库存: <span class="fw-bold" style="color:{{ 'var(--success)' if gift.stock > 0 else 'var(--danger)' }}">{{ gift.stock }}</span>
+                        · 已兑换: <span class="fw-bold">{{ gift.redemptions|length }}</span>
+                    </span>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm" data-bs-toggle="modal" data-bs-target="#editGift{{ gift.id }}"
+                                style="border:1px solid var(--border-color);color:var(--text-secondary);padding:0.25rem 0.5rem;border-radius:8px">
+                            <i class="bi bi-pencil" style="font-size:0.75rem"></i>
+                        </button>
+                        <form method="POST" action="{{ url_for('admin_delete_gift', gift_id=gift.id) }}"
+                              onsubmit="return confirm('确定删除此礼品？')">
+                            <button class="btn btn-sm" style="border:1px solid rgba(239,68,68,0.3);color:#ef4444;padding:0.25rem 0.5rem;border-radius:8px">
+                                <i class="bi bi-trash" style="font-size:0.75rem"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal fade" id="editGift{{ gift.id }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">编辑礼品 - {{ gift.name }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="{{ url_for('admin_edit_gift', gift_id=gift.id) }}">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">礼品名称</label>
+                            <input type="text" name="name" class="form-control" value="{{ gift.name }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">描述</label>
+                            <textarea name="description" class="form-control" rows="2">{{ gift.description or '' }}</textarea>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label class="form-label">所需积分</label>
+                                <input type="number" name="points_required" class="form-control" value="{{ gift.points_required }}" min="0" required>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">库存</label>
+                                <input type="number" name="stock" class="form-control" value="{{ gift.stock }}" min="0" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">图片 URL</label>
+                            <input type="text" name="image_url" class="form-control" value="{{ gift.image_url or '' }}" placeholder="https://...">
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label class="form-label">排序</label>
+                                <input type="number" name="sort_order" class="form-control" value="{{ gift.sort_order }}">
+                            </div>
+                            <div class="col-6 d-flex align-items-end">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="is_active" {% if gift.is_active %}checked{% endif %}>
+                                    <label class="form-check-label">上架</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="background:rgba(255,255,255,0.06);border:1px solid var(--border-color);color:var(--text-secondary)">取消</button>
+                        <button type="submit" class="btn btn-primary">保存</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not gifts %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5" style="color:var(--text-muted)">
+                <i class="bi bi-gift" style="font-size:3rem;opacity:0.3"></i>
+                <p class="mt-3">暂无礼品，点击右上角添加</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Create Gift Modal -->
+<div class="modal fade" id="createGiftModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">添加礼品</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin_create_gift') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">礼品名称 <span style="color:var(--danger)">*</span></label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">描述</label>
+                        <textarea name="description" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="form-label">所需积分 <span style="color:var(--danger)">*</span></label>
+                            <input type="number" name="points_required" class="form-control" min="0" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">库存 <span style="color:var(--danger)">*</span></label>
+                            <input type="number" name="stock" class="form-control" min="0" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">图片 URL</label>
+                        <input type="text" name="image_url" class="form-control" placeholder="https://...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">排序</label>
+                        <input type="number" name="sort_order" class="form-control" value="0">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="background:rgba(255,255,255,0.06);border:1px solid var(--border-color);color:var(--text-secondary)">取消</button>
+                    <button type="submit" class="btn btn-primary">创建礼品</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

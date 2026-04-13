@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+{% block title %}代理榜单 - 总管理{% endblock %}
+
+{% block extra_css %}
+<style>
+    .rank-medal {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 0.85rem;
+    }
+    .rank-1 { background: linear-gradient(135deg, #ffd700, #ffaa00); color: #000; box-shadow: 0 0 16px rgba(255,215,0,0.3); }
+    .rank-2 { background: linear-gradient(135deg, #c0c0c0, #e0e0e0); color: #333; box-shadow: 0 0 12px rgba(192,192,192,0.3); }
+    .rank-3 { background: linear-gradient(135deg, #cd7f32, #e8a860); color: #fff; box-shadow: 0 0 12px rgba(205,127,50,0.3); }
+    .rank-other { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border-color); }
+
+    .ranking-row {
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    .ranking-row:hover {
+        background: rgba(212,175,55,0.04) !important;
+    }
+
+    .top3-card {
+        text-align: center;
+        padding: 1.5rem 1rem;
+        border-radius: 16px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-card);
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    .top3-card:hover {
+        border-color: var(--gold);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 30px rgba(212,175,55,0.08);
+    }
+    .top3-card.gold-card { border-color: rgba(255,215,0,0.2); background: rgba(255,215,0,0.03); }
+    .top3-card.silver-card { border-color: rgba(192,192,192,0.15); }
+    .top3-card.bronze-card { border-color: rgba(205,127,50,0.15); }
+
+    .top3-rank {
+        font-size: 2rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .tree-wrapper {
+        overflow: auto;
+        padding: 2rem 1rem;
+        min-height: 40vh;
+    }
+    .tree-wrapper .tree {
+        display: flex;
+        justify-content: center;
+    }
+    .tree ul { display: flex; padding-top: 20px; position: relative; }
+    .tree li { list-style: none; text-align: center; position: relative; padding: 20px 8px 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h4>代理榜单</h4>
+        <div class="subtitle">按有效下线人数排名</div>
+    </div>
+</div>
+
+<!-- Top 3 Cards -->
+{% if ranking|length >= 3 %}
+<div class="row g-4 mb-4">
+    {% set medals = ['gold-card', 'silver-card', 'bronze-card'] %}
+    {% set medal_icons = ['bi-trophy-fill', 'bi-award-fill', 'bi-award'] %}
+    {% set medal_colors = ['#ffd700', '#c0c0c0', '#cd7f32'] %}
+    {% for i in range(3) %}
+    {% set r = ranking[i] %}
+    <div class="col-md-4">
+        <div class="top3-card {{ medals[i] }}" onclick="showRankingTree({{ r.agent.id }}, '{{ r.agent.name }}')">
+            <div class="mb-3">
+                <i class="bi {{ medal_icons[i] }}" style="font-size:2.2rem;color:{{ medal_colors[i] }}"></i>
+            </div>
+            <img src="{{ url_for('static', filename='img/tiers/' + (r.agent.tier.icon_file if r.agent.tier else 'classic.jpeg')) }}"
+                 style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid {{ medal_colors[i] }}" class="mb-2">
+            <h5 class="fw-bold mb-1">{{ r.agent.name }}</h5>
+            <span class="tier-badge tier-{{ (r.agent.tier.name if r.agent.tier else 'classic')|lower }} mb-2">
+                {{ r.agent.tier.name if r.agent.tier else 'Classic' }}
+            </span>
+            <div class="row g-2 mt-3">
+                <div class="col-3">
+                    <div style="font-size:1.4rem;font-weight:800;color:var(--gold)">{{ r.valid_downlines }}</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted)">有效下线</div>
+                </div>
+                <div class="col-3">
+                    <div style="font-size:1.4rem;font-weight:800">{{ r.total_downlines }}</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted)">总下线</div>
+                </div>
+                <div class="col-3">
+                    <div style="font-size:1.4rem;font-weight:800;color:var(--success)">{{ r.direct_downlines }}</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted)">直属</div>
+                </div>
+                <div class="col-3">
+                    <div style="font-size:1.4rem;font-weight:800;color:var(--info)">{{ r.agent.points }}</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted)">积分</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Full Ranking Table -->
+<div class="card">
+    <div class="card-header">
+        <h6><i class="bi bi-list-ol me-2" style="color:var(--gold)"></i>完整排名</h6>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:70px">排名</th>
+                        <th>代理</th>
+                        <th>等级</th>
+                        <th>有效下线</th>
+                        <th>总下线</th>
+                        <th>直属下线</th>
+                        <th>积分</th>
+                        <th>累计佣金</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in ranking %}
+                    <tr class="ranking-row">
+                        <td>
+                            {% if r.rank <= 3 %}
+                            <span class="rank-medal rank-{{ r.rank }}">{{ r.rank }}</span>
+                            {% else %}
+                            <span class="rank-medal rank-other">{{ r.rank }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <img src="{{ url_for('static', filename='img/tiers/' + (r.agent.tier.icon_file if r.agent.tier else 'classic.jpeg')) }}"
+                                     style="width:32px;height:32px;border-radius:50%;object-fit:cover">
+                                <div>
+                                    <div class="fw-bold" style="font-size:0.9rem">{{ r.agent.name }}</div>
+                                    <div style="font-size:0.78rem;color:var(--text-muted)">{{ r.agent.username }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="tier-badge tier-{{ (r.agent.tier.name if r.agent.tier else 'classic')|lower }}">
+                                {{ r.agent.tier.name if r.agent.tier else 'Classic' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="fw-bold" style="font-size:1.1rem;color:var(--gold)">{{ r.valid_downlines }}</span>
+                        </td>
+                        <td>{{ r.total_downlines }}</td>
+                        <td>{{ r.direct_downlines }}</td>
+                        <td><span class="fw-bold" style="color:var(--info)">{{ r.agent.points }}</span></td>
+                        <td style="color:var(--success);font-weight:600">{{ "%.2f"|format(r.total_commission) }}</td>
+                        <td>
+                            <button class="btn btn-sm" onclick="showRankingTree({{ r.agent.id }}, '{{ r.agent.name }}')"
+                                    style="border:1px solid rgba(102,126,234,0.3);color:#667eea;padding:0.3rem 0.6rem;border-radius:8px">
+                                <i class="bi bi-diagram-3 me-1" style="font-size:0.78rem"></i>关系图
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not ranking %}
+                    <tr><td colspan="9" class="text-center py-5" style="color:var(--text-muted)">暂无代理数据</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Tree Modal -->
+<div class="modal fade" id="treeModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-diagram-3 me-2"></i><span id="treeAgentName"></span> 的代理关系图</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="min-height:400px;overflow:auto">
+                <div class="d-flex justify-content-end gap-2 mb-3">
+                    <button class="btn btn-sm" onclick="zoomTree(-0.1)" style="border:1px solid var(--border-color);color:var(--text-secondary);border-radius:8px"><i class="bi bi-zoom-out"></i></button>
+                    <button class="btn btn-sm" onclick="zoomTree(0.1)" style="border:1px solid var(--border-color);color:var(--text-secondary);border-radius:8px"><i class="bi bi-zoom-in"></i></button>
+                    <button class="btn btn-sm" onclick="zoomTree(0)" style="border:1px solid var(--border-color);color:var(--text-secondary);border-radius:8px"><i class="bi bi-arrow-counterclockwise"></i></button>
+                </div>
+                <div class="tree-wrapper">
+                    <div class="tree" id="modalTreeView" style="transform-origin:top center;display:flex;justify-content:center"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Agent Info Modal -->
+<div class="modal fade" id="agentInfoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-badge me-2"></i><span id="infoAgentName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="agentInfoBody"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let modalZoom = 1;
+
+function buildTreeHTML(nodes) {
+    if (!nodes || nodes.length === 0) return '';
+    let html = '<ul>';
+    for (const node of nodes) {
+        html += '<li>';
+        html += `<div class="tree-node" style="cursor:pointer" onclick="event.stopPropagation();showNodeInfo(${node.id}, '${node.name.replace(/'/g, "\\'")}')">
+            <img src="/static/img/tiers/${node.tier_icon}" alt="${node.tier}">
+            <div class="node-name">${node.name}</div>
+            <div class="node-tier">${node.tier}</div>
+            <div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px">${node.username}</div>
+        </div>`;
+        if (node.children && node.children.length > 0) {
+            html += buildTreeHTML(node.children);
+        }
+        html += '</li>';
+    }
+    html += '</ul>';
+    return html;
+}
+
+function zoomTree(delta) {
+    if (delta === 0) modalZoom = 1;
+    else modalZoom = Math.max(0.3, Math.min(2, modalZoom + delta));
+    document.getElementById('modalTreeView').style.transform = `scale(${modalZoom})`;
+}
+
+function showRankingTree(agentId, agentName) {
+    document.getElementById('treeAgentName').textContent = agentName;
+    document.getElementById('modalTreeView').innerHTML = '<div class="text-center py-5" style="color:var(--text-muted)"><div class="spinner-border spinner-border-sm me-2"></div>加载中...</div>';
+    modalZoom = 1;
+
+    const modal = new bootstrap.Modal(document.getElementById('treeModal'));
+    modal.show();
+
+    fetch(`/api/agent/${agentId}/tree`)
+        .then(r => r.json())
+        .then(data => {
+            const html = buildTreeHTML(data);
+            document.getElementById('modalTreeView').innerHTML = html || '<div class="text-center py-5" style="color:var(--text-muted)">该代理暂无下线</div>';
+        })
+        .catch(() => {
+            document.getElementById('modalTreeView').innerHTML = '<div class="text-center py-5" style="color:var(--danger)">加载失败</div>';
+        });
+}
+
+function showNodeInfo(agentId, agentName) {
+    document.getElementById('infoAgentName').textContent = agentName;
+    document.getElementById('agentInfoBody').innerHTML = '<div class="text-center py-4" style="color:var(--text-muted)"><div class="spinner-border spinner-border-sm me-2"></div>加载中...</div>';
+
+    const treeModalEl = document.getElementById('treeModal');
+    const treeModal = bootstrap.Modal.getInstance(treeModalEl);
+    if (treeModal) treeModal.hide();
+
+    setTimeout(() => {
+        const infoModal = new bootstrap.Modal(document.getElementById('agentInfoModal'));
+        infoModal.show();
+    }, 300);
+
+    fetch(`/api/agent/${agentId}/info`)
+        .then(r => r.json())
+        .then(d => {
+            const verified = d.is_verified ? '<span style="color:#10b981"><i class="bi bi-check-circle-fill"></i> 已验证</span>' : '<span style="color:#ef4444"><i class="bi bi-x-circle"></i> 未验证</span>';
+            const active = d.is_active ? '<span class="badge" style="background:rgba(16,185,129,0.15);color:#10b981">活跃</span>' : '<span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444">停用</span>';
+            document.getElementById('agentInfoBody').innerHTML = `
+                <div class="d-flex align-items-center gap-3 mb-4 pb-3" style="border-bottom:1px solid var(--border-color)">
+                    <img src="/static/img/tiers/${d.tier_icon}" style="width:56px;height:56px;border-radius:50%;object-fit:cover">
+                    <div>
+                        <h5 class="fw-bold mb-1">${d.name}</h5>
+                        <span class="tier-badge tier-${d.tier.toLowerCase()}">${d.tier}</span> ${active}
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">用户名</div><div class="fw-bold">${d.username}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">电话</div><div class="fw-bold">${d.phone}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">邮箱</div><div class="fw-bold">${d.email}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">生日</div><div class="fw-bold">${d.birthday}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">货币</div><div class="fw-bold">${d.currency}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">上线代理</div><div class="fw-bold">${d.referrer}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">验证状态</div><div>${verified}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">注册时间</div><div class="fw-bold">${d.created_at}</div></div>
+                </div>
+                <div class="row g-3 mt-1 pt-3" style="border-top:1px solid var(--border-color)">
+                    <div class="col-md-3"><div class="text-center p-3" style="background:var(--bg-primary);border-radius:10px"><div style="font-size:1.3rem;font-weight:700;color:var(--gold)">${d.total_deposit.toFixed(2)}</div><div style="font-size:0.75rem;color:var(--text-muted)">累计充值</div></div></div>
+                    <div class="col-md-3"><div class="text-center p-3" style="background:var(--bg-primary);border-radius:10px"><div style="font-size:1.3rem;font-weight:700;color:#10b981">${d.total_commission.toFixed(2)}</div><div style="font-size:0.75rem;color:var(--text-muted)">累计佣金</div></div></div>
+                    <div class="col-md-3"><div class="text-center p-3" style="background:var(--bg-primary);border-radius:10px"><div style="font-size:1.3rem;font-weight:700">${d.direct_downlines}</div><div style="font-size:0.75rem;color:var(--text-muted)">直属下线</div></div></div>
+                    <div class="col-md-3"><div class="text-center p-3" style="background:var(--bg-primary);border-radius:10px"><div style="font-size:1.3rem;font-weight:700">${d.valid_downlines}</div><div style="font-size:0.75rem;color:var(--text-muted)">有效下线</div></div></div>
+                </div>
+                <div class="mt-3 text-end">
+                    <a href="/admin/agents/${d.id}" class="btn btn-primary btn-sm"><i class="bi bi-pencil me-1"></i>编辑代理</a>
+                </div>
+            `;
+        })
+        .catch(() => {
+            document.getElementById('agentInfoBody').innerHTML = '<div class="text-center py-4" style="color:var(--danger)">加载失败</div>';
+        });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}个人资料 - 代理后台{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h4>个人资料</h4>
+        <div class="subtitle">查看您的账户信息</div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card text-center" style="border-color:rgba(212,175,55,0.12)">
+            <div class="card-body" style="padding:2rem">
+                {% if current_user.tier %}
+                <img src="{{ url_for('static', filename='img/tiers/' + current_user.tier.icon_file) }}"
+                     style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid rgba(212,175,55,0.3);box-shadow:0 0 30px rgba(212,175,55,0.1)" class="mb-3">
+                {% endif %}
+                <h5 class="fw-bold mb-2">{{ current_user.name }}</h5>
+                {% if current_user.tier %}
+                <span class="tier-badge tier-{{ current_user.tier.name|lower }}" style="font-size:0.85rem;padding:6px 16px">
+                    <img src="{{ url_for('static', filename='img/tiers/' + current_user.tier.icon_file) }}" style="width:20px;height:20px">
+                    {{ current_user.tier.name }}
+                </span>
+                {% endif %}
+                <div class="mt-3" style="color:var(--text-muted);font-size:0.82rem">
+                    @{{ current_user.username }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="bi bi-person me-2" style="color:var(--gold)"></i>账户信息</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:0.25rem">用户名</div>
+                        <div class="fw-bold" style="font-size:0.9rem">{{ current_user.username }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:0.25rem">姓名</div>
+                        <div class="fw-bold" style="font-size:0.9rem">{{ current_user.name }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:0.25rem">生日</div>
+                        <div style="font-size:0.9rem">{{ current_user.birthday.strftime('%Y-%m-%d') if current_user.birthday else '-' }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:0.25rem">电话</div>
+                        <div style="font-size:0.9rem">{{ current_user.phone or '-' }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:0.25rem">邮箱</div>
+                        <div style="font-size:0.9rem">{{ current_user.email or '-' }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:0.25rem">货币</div>
+                        <div style="font-size:0.9rem">{{ current_user.currency }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:0.25rem">银行</div>
+                        <div style="font-size:0.9rem">{{ current_user.bank_name or '-' }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:0.25rem">银行户口</div>
+                        <div style="font-size:0.9rem">{{ current_user.bank_account or '-' }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:0.25rem">累计充值</div>
+                        <div class="fw-bold" style="font-size:0.9rem;color:var(--gold)">{{ "%.2f"|format(current_user.total_deposit) }} {{ current_user.currency }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:0.25rem">上线代理</div>
+                        <div style="font-size:0.9rem">{{ current_user.referrer.name if current_user.referrer else '无（顶级代理）' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6><i class="bi bi-lock me-2" style="color:var(--gold)"></i>修改密码</h6>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">新密码</label>
+                            <input type="password" name="new_password" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">确认密码</label>
+                            <input type="password" name="confirm_password" class="form-control" required>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-2"></i>修改密码
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

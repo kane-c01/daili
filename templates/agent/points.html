@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}积分商城 - 代理后台{% endblock %}
+
+{% block extra_css %}
+<style>
+    .gift-card {
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        background: var(--bg-card);
+        overflow: hidden;
+        transition: all 0.3s;
+        height: 100%;
+    }
+    .gift-card:hover {
+        border-color: var(--gold);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 30px rgba(212,175,55,0.08);
+    }
+    .gift-card .gift-img {
+        width: 100%;
+        height: 160px;
+        object-fit: cover;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .gift-card .gift-placeholder {
+        width: 100%;
+        height: 160px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(212,175,55,0.04);
+        border-bottom: 1px solid var(--border-color);
+    }
+    .points-display {
+        background: linear-gradient(135deg, rgba(212,175,55,0.1), rgba(212,175,55,0.03));
+        border: 1px solid rgba(212,175,55,0.15);
+        border-radius: 16px;
+        padding: 2rem;
+        text-align: center;
+    }
+    .points-value {
+        font-size: 3rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--gold), var(--gold-light));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h4>积分商城</h4>
+        <div class="subtitle">使用积分兑换精美礼品</div>
+    </div>
+</div>
+
+<!-- Points Balance -->
+<div class="points-display mb-4">
+    <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.5rem">我的积分</div>
+    <div class="points-value">{{ current_user.points }}</div>
+    <div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.25rem">可用于兑换以下礼品</div>
+</div>
+
+<!-- Gift Catalog -->
+<h5 class="fw-bold mb-3"><i class="bi bi-gift me-2" style="color:var(--gold)"></i>礼品列表</h5>
+<div class="row g-4 mb-5">
+    {% for gift in gifts %}
+    <div class="col-md-6 col-xl-4">
+        <div class="gift-card">
+            {% if gift.image_url %}
+            <img src="{{ gift.image_url }}" class="gift-img" alt="{{ gift.name }}">
+            {% else %}
+            <div class="gift-placeholder">
+                <i class="bi bi-gift-fill" style="font-size:3rem;color:var(--gold);opacity:0.3"></i>
+            </div>
+            {% endif %}
+            <div class="p-3">
+                <h6 class="fw-bold mb-1">{{ gift.name }}</h6>
+                {% if gift.description %}
+                <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.75rem">{{ gift.description }}</p>
+                {% endif %}
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span style="font-size:1.3rem;font-weight:800;color:var(--gold)">{{ gift.points_required }}</span>
+                        <span style="font-size:0.78rem;color:var(--text-muted)"> 积分</span>
+                    </div>
+                    <div class="text-end">
+                        {% if gift.stock > 0 %}
+                        <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px">库存 {{ gift.stock }}</div>
+                        {% endif %}
+                        {% if current_user.points >= gift.points_required and gift.stock > 0 %}
+                        <form method="POST" action="{{ url_for('agent_redeem', gift_id=gift.id) }}"
+                              onsubmit="return confirm('确定兑换 {{ gift.name }}？将消耗 {{ gift.points_required }} 积分')">
+                            <button type="submit" class="btn btn-sm btn-primary" style="border-radius:10px;padding:0.35rem 1rem;font-weight:600">
+                                兑换
+                            </button>
+                        </form>
+                        {% elif gift.stock <= 0 %}
+                        <button class="btn btn-sm" disabled style="background:rgba(239,68,68,0.1);color:#ef4444;border:none;border-radius:10px;padding:0.35rem 1rem">
+                            已售罄
+                        </button>
+                        {% else %}
+                        <button class="btn btn-sm" disabled style="background:rgba(255,255,255,0.04);color:var(--text-muted);border:1px solid var(--border-color);border-radius:10px;padding:0.35rem 1rem">
+                            积分不足
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not gifts %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5" style="color:var(--text-muted)">
+                <i class="bi bi-gift" style="font-size:3rem;opacity:0.3"></i>
+                <p class="mt-3">暂无可兑换礼品</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Transaction History -->
+<h5 class="fw-bold mb-3"><i class="bi bi-clock-history me-2" style="color:var(--gold)"></i>积分记录</h5>
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>类型</th>
+                        <th>积分变动</th>
+                        <th>余额</th>
+                        <th>说明</th>
+                        <th>时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in transactions.items %}
+                    <tr>
+                        <td>
+                            {% if t.transaction_type == 'admin_add' %}
+                            <span class="badge" style="background:rgba(16,185,129,0.15);color:#10b981">获得</span>
+                            {% elif t.transaction_type == 'admin_deduct' %}
+                            <span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444">扣除</span>
+                            {% elif t.transaction_type == 'redeem' %}
+                            <span class="badge" style="background:rgba(59,130,246,0.15);color:#3b82f6">兑换</span>
+                            {% else %}
+                            <span class="badge" style="background:rgba(212,175,55,0.15);color:var(--gold)">{{ t.transaction_type }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="fw-bold" style="color:{{ 'var(--success)' if t.points > 0 else 'var(--danger)' }}">
+                                {{ '+' if t.points > 0 else '' }}{{ t.points }}
+                            </span>
+                        </td>
+                        <td>{{ t.balance_after }}</td>
+                        <td style="font-size:0.85rem;color:var(--text-secondary)">{{ t.description or '-' }}</td>
+                        <td style="font-size:0.85rem;color:var(--text-muted)">{{ t.created_at.strftime('%m-%d %H:%M') }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not transactions.items %}
+                    <tr><td colspan="5" class="text-center py-4" style="color:var(--text-muted)">暂无积分记录</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if transactions.pages > 1 %}
+    <div class="card-body border-top d-flex justify-content-center" style="border-color:var(--border-color)!important">
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% for p in transactions.iter_pages() %}
+                {% if p %}
+                <li class="page-item {% if p == transactions.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+                {% endfor %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

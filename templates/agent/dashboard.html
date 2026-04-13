@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}我的面板 - 代理后台{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h4>我的面板</h4>
+        <div class="subtitle">欢迎回来, {{ current_user.name }}</div>
+    </div>
+    <span class="badge" style="background:rgba(212,175,55,0.12);color:var(--gold);font-size:0.82rem;padding:0.5em 1em;border-radius:8px">
+        {{ current_user.currency }}
+    </span>
+</div>
+
+<div class="card mb-4" style="border-color:rgba(212,175,55,0.12);background:linear-gradient(135deg, rgba(212,175,55,0.04), rgba(212,175,55,0.01))">
+    <div class="card-body" style="padding:1.75rem">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                {% if current_tier %}
+                <img src="{{ url_for('static', filename='img/tiers/' + current_tier.icon_file) }}"
+                     style="width:76px;height:76px;border-radius:50%;object-fit:cover;border:3px solid rgba(212,175,55,0.3);box-shadow:0 0 30px rgba(212,175,55,0.1)">
+                {% endif %}
+            </div>
+            <div class="col">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <h5 class="fw-bold mb-0" style="font-size:1.2rem">{{ current_tier.name if current_tier else 'Classic' }}</h5>
+                    {% if next_tier %}
+                    <i class="bi bi-chevron-right" style="color:var(--text-muted);font-size:0.85rem"></i>
+                    <span style="color:var(--text-secondary);font-size:0.9rem">{{ next_tier.name }}</span>
+                    {% endif %}
+                </div>
+                {% if next_tier %}
+                <div class="mb-1">
+                    <div class="d-flex justify-content-between mb-2">
+                        <small style="color:var(--text-secondary)">距离升级还差 <span class="fw-bold" style="color:var(--gold)">{{ next_tier.min_downlines - valid_count }}</span> 个有效下线</small>
+                        <small class="fw-bold" style="color:var(--gold)">{{ progress }}%</small>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar" style="width:{{ progress }}%"></div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="d-flex align-items-center gap-2" style="color:var(--success)">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span class="fw-bold" style="font-size:0.9rem">已达最高等级</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-label">有效下线</div>
+                    <div class="stat-value" style="color:var(--gold)">{{ valid_count }}</div>
+                </div>
+                <div class="stat-icon" style="background:rgba(212,175,55,0.12);color:var(--gold)">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-label">直属下线</div>
+                    <div class="stat-value">{{ direct_downlines|length }}</div>
+                </div>
+                <div class="stat-icon" style="background:rgba(16,185,129,0.12);color:#10b981">
+                    <i class="bi bi-person-plus-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-label">全部下线</div>
+                    <div class="stat-value">{{ all_downlines|length }}</div>
+                </div>
+                <div class="stat-icon" style="background:rgba(102,126,234,0.12);color:#667eea">
+                    <i class="bi bi-diagram-3-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-label">总佣金</div>
+                    <div class="stat-value" style="color:var(--success)">{{ "%.0f"|format(total_commission) }}</div>
+                </div>
+                <div class="stat-icon" style="background:rgba(16,185,129,0.12);color:#10b981">
+                    <i class="bi bi-cash-stack"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if current_tier %}
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6><i class="bi bi-percent me-2" style="color:var(--gold)"></i>我的佣金比例</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center pb-3 mb-3" style="border-bottom:1px solid var(--border-color)">
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="width:36px;height:36px;border-radius:10px;background:rgba(59,130,246,0.12);display:flex;align-items:center;justify-content:center;color:#60a5fa">
+                            <i class="bi bi-broadcast"></i>
+                        </div>
+                        <span style="font-size:0.9rem">Live Casino</span>
+                    </div>
+                    <span class="fw-bold" style="font-size:1.25rem;color:#60a5fa">{{ current_tier.live_casino_rate }}%</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="width:36px;height:36px;border-radius:10px;background:rgba(245,158,11,0.12);display:flex;align-items:center;justify-content:center;color:#f59e0b">
+                            <i class="bi bi-joystick"></i>
+                        </div>
+                        <span style="font-size:0.9rem">Slot</span>
+                    </div>
+                    <span class="fw-bold" style="font-size:1.25rem;color:#f59e0b">{{ current_tier.slot_rate }}%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6><i class="bi bi-gift me-2" style="color:var(--gold)"></i>奖励</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center pb-3 mb-3" style="border-bottom:1px solid var(--border-color)">
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="width:36px;height:36px;border-radius:10px;background:rgba(239,68,68,0.12);display:flex;align-items:center;justify-content:center;color:#ef4444">
+                            <i class="bi bi-gift"></i>
+                        </div>
+                        <span style="font-size:0.9rem">生日奖励</span>
+                    </div>
+                    <span class="fw-bold" style="font-size:1.25rem">
+                        {% if current_tier.birthday_bonus > 0 %}
+                        <span style="color:var(--gold)">MYR {{ "%.0f"|format(current_tier.birthday_bonus) }}</span>
+                        {% else %}
+                        <span style="color:var(--text-muted)">-</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="width:36px;height:36px;border-radius:10px;background:rgba(16,185,129,0.12);display:flex;align-items:center;justify-content:center;color:#10b981">
+                            <i class="bi bi-arrow-up-circle"></i>
+                        </div>
+                        <span style="font-size:0.9rem">升级奖励</span>
+                    </div>
+                    <span class="fw-bold" style="font-size:1.25rem">
+                        {% if current_tier.upgrade_bonus > 0 %}
+                        <span style="color:var(--gold)">MYR {{ "%.0f"|format(current_tier.upgrade_bonus) }}</span>
+                        {% else %}
+                        <span style="color:var(--text-muted)">-</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6><i class="bi bi-clock-history me-2" style="color:var(--gold)"></i>最近佣金记录</h6>
+        <a href="{{ url_for('agent_commissions') }}" class="btn btn-sm btn-outline-primary" style="font-size:0.78rem">
+            查看全部 <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>来源</th>
+                        <th>类别</th>
+                        <th>流水</th>
+                        <th>佣金</th>
+                        <th>时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in recent_commissions %}
+                    <tr>
+                        <td class="fw-bold">{{ c.from_user.name }}</td>
+                        <td>
+                            {% if c.category == 'live_casino' %}
+                            <span class="badge" style="background:rgba(59,130,246,0.15);color:#60a5fa">Live Casino</span>
+                            {% else %}
+                            <span class="badge" style="background:rgba(245,158,11,0.15);color:#f59e0b">Slot</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ "%.2f"|format(c.turnover_amount) }}</td>
+                        <td class="fw-bold" style="color:var(--success)">+{{ "%.2f"|format(c.amount) }}</td>
+                        <td style="color:var(--text-secondary)">{{ c.created_at.strftime('%m-%d %H:%M') }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not recent_commissions %}
+                    <tr><td colspan="5" class="text-center py-5" style="color:var(--text-muted)">暂无佣金记录</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}代理关系图 - 总管理{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tree-wrapper {
+        overflow: auto;
+        padding: 2rem 1rem;
+        min-height: 60vh;
+    }
+
+    .tree-wrapper .tree {
+        display: flex;
+        justify-content: center;
+    }
+
+    .tree ul { display: flex; padding-top: 20px; position: relative; }
+    .tree li { list-style: none; text-align: center; position: relative; padding: 20px 8px 0; }
+
+    .zoom-controls {
+        display: flex;
+        gap: 6px;
+    }
+
+    .zoom-controls .btn {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        border-radius: 8px;
+        padding: 0.35rem 0.6rem;
+        transition: all 0.2s;
+    }
+
+    .zoom-controls .btn:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h4>代理关系图</h4>
+        <div class="subtitle">查看全部代理的层级关系</div>
+    </div>
+    <div class="zoom-controls">
+        <button class="btn btn-sm" onclick="zoomTree(-0.1)" title="缩小"><i class="bi bi-zoom-out"></i></button>
+        <button class="btn btn-sm" onclick="zoomTree(0.1)" title="放大"><i class="bi bi-zoom-in"></i></button>
+        <button class="btn btn-sm" onclick="zoomTree(0)" title="重置"><i class="bi bi-arrow-counterclockwise"></i></button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body tree-wrapper" id="treeContainer">
+        <div class="tree" id="treeView" style="transform-origin: top center;"></div>
+    </div>
+</div>
+
+<!-- Agent Info Modal -->
+<div class="modal fade" id="agentInfoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-badge me-2"></i><span id="infoAgentName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="agentInfoBody">
+                <div class="text-center py-4" style="color:var(--text-muted)">
+                    <div class="spinner-border spinner-border-sm me-2"></div>加载中...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const treeData = {{ tree_data|safe }};
+let currentZoom = 1;
+
+function buildTreeHTML(nodes) {
+    if (!nodes || nodes.length === 0) return '';
+    let html = '<ul>';
+    for (const node of nodes) {
+        html += '<li>';
+        html += `<div class="tree-node" style="cursor:pointer" onclick="showAgentInfo(${node.id}, '${node.name.replace(/'/g, "\\'")}')">
+            <img src="/static/img/tiers/${node.tier_icon}" alt="${node.tier}">
+            <div class="node-name">${node.name}</div>
+            <div class="node-tier">${node.tier}</div>
+            <div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px">${node.username}</div>
+        </div>`;
+        if (node.children && node.children.length > 0) {
+            html += buildTreeHTML(node.children);
+        }
+        html += '</li>';
+    }
+    html += '</ul>';
+    return html;
+}
+
+function zoomTree(delta) {
+    if (delta === 0) { currentZoom = 1; }
+    else { currentZoom = Math.max(0.3, Math.min(2, currentZoom + delta)); }
+    document.getElementById('treeView').style.transform = `scale(${currentZoom})`;
+}
+
+function showAgentInfo(agentId, agentName) {
+    document.getElementById('infoAgentName').textContent = agentName;
+    document.getElementById('agentInfoBody').innerHTML = '<div class="text-center py-4" style="color:var(--text-muted)"><div class="spinner-border spinner-border-sm me-2"></div>加载中...</div>';
+    const modal = new bootstrap.Modal(document.getElementById('agentInfoModal'));
+    modal.show();
+
+    fetch(`/api/agent/${agentId}/info`)
+        .then(r => r.json())
+        .then(d => {
+            const verified = d.is_verified ? '<span style="color:#10b981"><i class="bi bi-check-circle-fill"></i> 已验证</span>' : '<span style="color:#ef4444"><i class="bi bi-x-circle"></i> 未验证</span>';
+            const active = d.is_active ? '<span class="badge" style="background:rgba(16,185,129,0.15);color:#10b981">活跃</span>' : '<span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444">停用</span>';
+            document.getElementById('agentInfoBody').innerHTML = `
+                <div class="d-flex align-items-center gap-3 mb-4 pb-3" style="border-bottom:1px solid var(--border-color)">
+                    <img src="/static/img/tiers/${d.tier_icon}" style="width:56px;height:56px;border-radius:50%;object-fit:cover">
+                    <div>
+                        <h5 class="fw-bold mb-1">${d.name}</h5>
+                        <span class="tier-badge tier-${d.tier.toLowerCase()}">${d.tier}</span>
+                        ${active}
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">用户名</div>
+                            <div class="fw-bold">${d.username}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">电话</div>
+                            <div class="fw-bold">${d.phone}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">邮箱</div>
+                            <div class="fw-bold">${d.email}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">生日</div>
+                            <div class="fw-bold">${d.birthday}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">银行</div>
+                            <div class="fw-bold">${d.bank_name}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">银行户口</div>
+                            <div class="fw-bold">${d.bank_account}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">货币</div>
+                            <div class="fw-bold">${d.currency}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">上线代理</div>
+                            <div class="fw-bold">${d.referrer}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">验证状态</div>
+                            <div>${verified}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">注册时间</div>
+                            <div class="fw-bold">${d.created_at}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-3 mt-1 pt-3" style="border-top:1px solid var(--border-color)">
+                    <div class="col-md-3">
+                        <div class="text-center p-3" style="background:var(--bg-main);border-radius:10px">
+                            <div style="font-size:1.4rem;font-weight:700;color:var(--gold)">${d.total_deposit.toFixed(2)}</div>
+                            <div style="font-size:0.78rem;color:var(--text-muted)">累计充值</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3" style="background:var(--bg-main);border-radius:10px">
+                            <div style="font-size:1.4rem;font-weight:700;color:#10b981">${d.total_commission.toFixed(2)}</div>
+                            <div style="font-size:0.78rem;color:var(--text-muted)">累计佣金</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3" style="background:var(--bg-main);border-radius:10px">
+                            <div style="font-size:1.4rem;font-weight:700">${d.direct_downlines}</div>
+                            <div style="font-size:0.78rem;color:var(--text-muted)">直属下线</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3" style="background:var(--bg-main);border-radius:10px">
+                            <div style="font-size:1.4rem;font-weight:700">${d.valid_downlines}</div>
+                            <div style="font-size:0.78rem;color:var(--text-muted)">有效下线</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-3 mt-2">
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between p-3" style="background:var(--bg-main);border-radius:10px">
+                            <span style="color:var(--text-muted)">Live Casino 佣金</span>
+                            <span class="fw-bold" style="color:#17a2b8">${d.live_casino_rate}%</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between p-3" style="background:var(--bg-main);border-radius:10px">
+                            <span style="color:var(--text-muted)">Slot 佣金</span>
+                            <span class="fw-bold" style="color:#ffc107">${d.slot_rate}%</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        })
+        .catch(() => {
+            document.getElementById('agentInfoBody').innerHTML = '<div class="text-center py-4" style="color:var(--danger)">加载失败</div>';
+        });
+}
+
+document.getElementById('treeView').innerHTML = buildTreeHTML(treeData);
+if (treeData.length === 0) {
+    document.getElementById('treeView').innerHTML = '<div class="text-center py-5" style="color:var(--text-muted)">暂无代理数据</div>';
+}
+</script>
+{% endblock %}

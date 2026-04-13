@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}等级设置 - 总管理{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tier-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .tier-card:hover {
+        border-color: var(--border-glow);
+        transform: translateY(-2px);
+    }
+
+    .tier-card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .tier-card-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+    }
+
+    .tier-classic-header::before { background: linear-gradient(90deg, transparent, #9ca3af, transparent); }
+    .tier-silver-header::before { background: linear-gradient(90deg, transparent, #c0c0c0, transparent); }
+    .tier-gold-header::before { background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+    .tier-emerald-header::before { background: linear-gradient(90deg, transparent, #10b981, transparent); }
+    .tier-diamond-header::before { background: linear-gradient(90deg, transparent, #60a5fa, transparent); }
+
+    .tier-card-header img {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .tier-card-body {
+        padding: 1.5rem;
+    }
+
+    .tier-section-title {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--text-muted);
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h4>等级设置</h4>
+        <div class="subtitle">配置会员等级的下线要求、佣金比例和奖励金额</div>
+    </div>
+</div>
+
+<form method="POST">
+    <div class="row g-4">
+        {% for tier in tiers %}
+        <div class="col-md-6 col-xl-4">
+            <div class="tier-card">
+                <div class="tier-card-header tier-{{ tier.name|lower }}-header">
+                    <img src="{{ url_for('static', filename='img/tiers/' + tier.icon_file) }}"
+                         style="border:2px solid rgba(212,175,55,0.2)">
+                    <div>
+                        <h6 class="fw-bold mb-0" style="font-size:1rem">{{ tier.name }}</h6>
+                        <small style="color:var(--text-muted)">等级 {{ loop.index }}</small>
+                    </div>
+                </div>
+                <div class="tier-card-body">
+                    <div class="tier-section-title">下线人数要求</div>
+                    <div class="row g-2 mb-4">
+                        <div class="col-6">
+                            <label class="form-label">最低人数</label>
+                            <input type="number" name="tier_{{ tier.id }}_min" class="form-control" value="{{ tier.min_downlines }}" min="0">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">最高人数</label>
+                            <input type="number" name="tier_{{ tier.id }}_max" class="form-control" value="{{ tier.max_downlines }}" min="0">
+                        </div>
+                    </div>
+
+                    <div class="tier-section-title">佣金比例 (%)</div>
+                    <div class="row g-2 mb-4">
+                        <div class="col-6">
+                            <label class="form-label">Live Casino</label>
+                            <input type="number" name="tier_{{ tier.id }}_live_casino" class="form-control" value="{{ tier.live_casino_rate }}" step="0.01" min="0">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Slot</label>
+                            <input type="number" name="tier_{{ tier.id }}_slot" class="form-control" value="{{ tier.slot_rate }}" step="0.01" min="0">
+                        </div>
+                    </div>
+
+                    <div class="tier-section-title">奖励 (MYR)</div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label">生日奖励</label>
+                            <input type="number" name="tier_{{ tier.id }}_birthday" class="form-control" value="{{ tier.birthday_bonus }}" step="0.01" min="0">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">升级奖励</label>
+                            <input type="number" name="tier_{{ tier.id }}_upgrade" class="form-control" value="{{ tier.upgrade_bonus }}" step="0.01" min="0">
+                        </div>
+                    </div>
+
+                    <div class="tier-section-title mt-3">积分设置</div>
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label">佣金转积分比例 (%)</label>
+                            <input type="number" name="tier_{{ tier.id }}_points_rate" class="form-control" value="{{ tier.points_rate }}" step="0.1" min="0">
+                            <small style="color:var(--text-muted);font-size:0.72rem">代理获得佣金时，按此比例自动转为积分（1积分=1MYR）</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary px-5 py-2">
+            <i class="bi bi-check-lg me-2"></i>保存所有设置
+        </button>
+    </div>
+</form>
+
+<div class="card mt-5">
+    <div class="card-header">
+        <h6><i class="bi bi-info-circle me-2" style="color:var(--gold)"></i>升级规则说明</h6>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h6 class="fw-bold mb-3" style="font-size:0.9rem">有效下线条件</h6>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <i class="bi bi-check-circle-fill" style="color:var(--success)"></i>
+                    <span style="font-size:0.88rem">账户姓名需真实一致</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-check-circle-fill" style="color:var(--success)"></i>
+                    <span style="font-size:0.88rem">累计充值需达到 MYR100 以上</span>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <h6 class="fw-bold mb-3" style="font-size:0.9rem;color:var(--warning)">重要提醒</h6>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <i class="bi bi-exclamation-triangle-fill" style="color:var(--warning)"></i>
+                    <span style="font-size:0.88rem">严禁使用虚假账号冲段位</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-exclamation-triangle-fill" style="color:var(--warning)"></i>
+                    <span style="font-size:0.88rem">一经发现，将直接降级一级处理</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

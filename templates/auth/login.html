@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}登录 - 代理管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: var(--bg-primary);
+        position: relative;
+        overflow: hidden;
+    }
+
+    body::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background:
+            radial-gradient(ellipse at 20% 50%, rgba(212,175,55,0.06) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 20%, rgba(102,126,234,0.04) 0%, transparent 50%),
+            radial-gradient(ellipse at 50% 80%, rgba(118,75,162,0.04) 0%, transparent 50%);
+        animation: bgShift 20s ease infinite alternate;
+    }
+
+    @keyframes bgShift {
+        0% { transform: translate(0, 0); }
+        100% { transform: translate(-5%, -5%); }
+    }
+
+    .login-wrapper {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        z-index: 1;
+        padding: 2rem;
+    }
+
+    .login-card {
+        width: 420px;
+        max-width: 100%;
+        background: rgba(18,18,26,0.85);
+        backdrop-filter: blur(24px);
+        border: 1px solid rgba(212,175,55,0.12);
+        border-radius: 24px;
+        padding: 2.5rem;
+        box-shadow:
+            0 0 60px rgba(0,0,0,0.3),
+            0 0 100px rgba(212,175,55,0.03);
+    }
+
+    .login-logo {
+        width: 240px;
+        height: auto;
+        max-height: 64px;
+        border-radius: 0;
+        object-fit: contain;
+        background: transparent;
+        padding: 0;
+        border: none;
+        box-shadow: none;
+    }
+
+    .login-title {
+        font-weight: 800;
+        font-size: 1.4rem;
+        margin-top: 1rem;
+        background: linear-gradient(135deg, #fff, var(--gold-light));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .login-subtitle {
+        color: var(--text-secondary);
+        font-size: 0.88rem;
+    }
+
+    .login-card .form-control {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    .login-card .form-control:focus {
+        border-color: rgba(212,175,55,0.4);
+        box-shadow: 0 0 0 4px rgba(212,175,55,0.06);
+    }
+
+    .login-card .input-group-text {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        color: var(--gold);
+    }
+
+    .login-btn {
+        background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+        color: #000;
+        font-weight: 700;
+        font-size: 0.95rem;
+        border: none;
+        border-radius: 12px;
+        padding: 0.75rem;
+        transition: all 0.3s ease;
+    }
+
+    .login-btn:hover {
+        background: linear-gradient(135deg, var(--gold), var(--gold-light));
+        color: #000;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(212,175,55,0.3);
+    }
+
+    .login-decoration {
+        position: absolute;
+        width: 300px;
+        height: 300px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(212,175,55,0.08), transparent 70%);
+        filter: blur(60px);
+    }
+
+    .login-decoration.top-right {
+        top: -100px;
+        right: -100px;
+    }
+
+    .login-decoration.bottom-left {
+        bottom: -100px;
+        left: -100px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-decoration top-right"></div>
+<div class="login-decoration bottom-left"></div>
+
+<div class="login-wrapper">
+    <div class="login-card">
+        <div class="text-center mb-4">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="login-logo mb-2">
+            <div class="login-title">代理管理系统</div>
+            <div class="login-subtitle">请登录您的账号</div>
+        </div>
+
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="mb-3">
+                <label class="form-label">用户名</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                    <input type="text" name="username" class="form-control" placeholder="输入用户名" required autofocus>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="form-label">密码</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input type="password" name="password" class="form-control" placeholder="输入密码" required>
+                </div>
+            </div>
+            <button type="submit" class="btn login-btn w-100">
+                <i class="bi bi-box-arrow-in-right me-2"></i>登录
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

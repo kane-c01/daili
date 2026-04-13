@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+{% block title %}代理管理 - 总管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h4>代理管理</h4>
+        <div class="subtitle">管理所有代理商账号</div>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal">
+        <i class="bi bi-plus-lg me-1"></i>新建代理
+    </button>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <form method="GET" class="d-flex gap-3 align-items-end">
+            <div class="flex-grow-1" style="max-width:360px">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search" style="font-size:0.85rem"></i></span>
+                    <input type="text" name="search" class="form-control" placeholder="搜索姓名 / 用户名 / 电话" value="{{ search }}">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-search me-1"></i>搜索</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>用户名</th>
+                        <th>姓名</th>
+                        <th>等级</th>
+                        <th>货币</th>
+                        <th>累计充值</th>
+                        <th>上线</th>
+                        <th>有效下线</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for agent in agents.items %}
+                    <tr>
+                        <td style="color:var(--text-muted)">#{{ agent.id }}</td>
+                        <td><code style="color:var(--gold);background:rgba(212,175,55,0.08);padding:2px 8px;border-radius:4px;font-size:0.82rem;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px" onclick="showAgentInfo({{ agent.id }}, '{{ agent.name }}')">{{ agent.username }}</code></td>
+                        <td class="fw-bold" style="cursor:pointer;color:var(--text-primary)" onclick="showAgentInfo({{ agent.id }}, '{{ agent.name }}')">{{ agent.name }}</td>
+                        <td>
+                            {% if agent.tier %}
+                            <span class="tier-badge tier-{{ agent.tier.name|lower }}">
+                                <img src="{{ url_for('static', filename='img/tiers/' + agent.tier.icon_file) }}">
+                                {{ agent.tier.name }}
+                            </span>
+                            {% else %}
+                            <span style="color:var(--text-muted)">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ agent.currency }}</td>
+                        <td>{{ "%.2f"|format(agent.total_deposit) }}</td>
+                        <td>{{ agent.referrer.name if agent.referrer else '<span style="color:var(--text-muted)">-</span>'|safe }}</td>
+                        <td>
+                            <span class="fw-bold" style="color:var(--gold)">{{ agent.get_valid_downline_count() }}</span>
+                        </td>
+                        <td>
+                            {% if agent.is_active %}
+                            <span class="badge" style="background:rgba(16,185,129,0.15);color:#10b981">活跃</span>
+                            {% else %}
+                            <span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444">停用</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a href="{{ url_for('admin_edit_agent', agent_id=agent.id) }}" class="btn btn-sm btn-outline-primary" title="编辑" style="padding:0.3rem 0.5rem">
+                                    <i class="bi bi-pencil" style="font-size:0.8rem"></i>
+                                </a>
+                                <button class="btn btn-sm" title="查看关系图" onclick="showAgentTree({{ agent.id }}, '{{ agent.name }}')"
+                                        style="border:1px solid rgba(102,126,234,0.3);color:#667eea;padding:0.3rem 0.5rem">
+                                    <i class="bi bi-diagram-3" style="font-size:0.8rem"></i>
+                                </button>
+                                <button class="btn btn-sm" title="充值" data-bs-toggle="modal"
+                                        data-bs-target="#depositModal" data-agent-id="{{ agent.id }}" data-agent-name="{{ agent.name }}"
+                                        style="border:1px solid rgba(16,185,129,0.3);color:#10b981;padding:0.3rem 0.5rem">
+                                    <i class="bi bi-cash-coin" style="font-size:0.8rem"></i>
+                                </button>
+                                <form method="POST" action="{{ url_for('admin_toggle_agent', agent_id=agent.id) }}" style="display:inline">
+                                    <button type="submit" class="btn btn-sm" title="{{ '禁用' if agent.is_active else '启用' }}"
+                                            style="border:1px solid {{ 'rgba(239,68,68,0.3);color:#ef4444' if agent.is_active else 'rgba(16,185,129,0.3);color:#10b981' }};padding:0.3rem 0.5rem">
+                                        <i class="bi bi-{{ 'pause' if agent.is_active else 'play' }}" style="font-size:0.8rem"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not agents.items %}
+                    <tr><td colspan="10" class="text-center py-5" style="color:var(--text-muted)">暂无代理数据</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if agents.pages > 1 %}
+    <div class="card-body border-top d-flex justify-content-center" style="border-color:var(--border-color)!important">
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% for p in agents.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if p %}
+                <li class="page-item {% if p == agents.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ p }}&search={{ search }}">{{ p }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+                {% endfor %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<div class="modal fade" id="createModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">新建代理</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin_create_agent') }}">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">用户名 <span style="color:var(--danger)">*</span></label>
+                            <input type="text" name="username" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">密码 <span style="color:var(--danger)">*</span></label>
+                            <input type="password" name="password" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">姓名 <span style="color:var(--danger)">*</span></label>
+                            <input type="text" name="name" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">生日</label>
+                            <input type="date" name="birthday" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">电话</label>
+                            <input type="text" name="phone" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">邮箱</label>
+                            <input type="email" name="email" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">银行名称</label>
+                            <input type="text" name="bank_name" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">银行户口</label>
+                            <input type="text" name="bank_account" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">货币</label>
+                            <select name="currency" class="form-select">
+                                {% for c in currencies %}
+                                <option value="{{ c }}">{{ c }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">上线代理</label>
+                            <select name="referrer_id" class="form-select">
+                                <option value="">无（顶级代理）</option>
+                                {% for a in all_agents %}
+                                <option value="{{ a.id }}">{{ a.name }} ({{ a.username }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="background:rgba(255,255,255,0.06);border:1px solid var(--border-color);color:var(--text-secondary)">取消</button>
+                    <button type="submit" class="btn btn-primary">创建代理</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="depositModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">添加充值 — <span id="depositAgentName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin_add_deposit') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="agent_id" id="depositAgentId">
+                    <div class="mb-3">
+                        <label class="form-label">金额</label>
+                        <input type="number" name="amount" class="form-control" step="0.01" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">类别</label>
+                        <select name="category" class="form-select">
+                            <option value="deposit">普通充值</option>
+                            <option value="live_casino">真人娱乐</option>
+                            <option value="slot">老虎机</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="background:rgba(255,255,255,0.06);border:1px solid var(--border-color);color:var(--text-secondary)">取消</button>
+                    <button type="submit" class="btn" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;font-weight:600;border-radius:10px">确认充值</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Agent Tree Modal -->
+<div class="modal fade" id="treeModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-diagram-3 me-2"></i><span id="treeAgentName"></span> 的代理关系图</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="min-height:400px;overflow:auto">
+                <div class="d-flex justify-content-end gap-2 mb-3">
+                    <button class="btn btn-sm" onclick="zoomTree(-0.1)" style="border:1px solid var(--border-color);color:var(--text-secondary)"><i class="bi bi-zoom-out"></i></button>
+                    <button class="btn btn-sm" onclick="zoomTree(0.1)" style="border:1px solid var(--border-color);color:var(--text-secondary)"><i class="bi bi-zoom-in"></i></button>
+                    <button class="btn btn-sm" onclick="zoomTree(0)" style="border:1px solid var(--border-color);color:var(--text-secondary)"><i class="bi bi-arrow-counterclockwise"></i></button>
+                </div>
+                <div id="modalTreeContainer" style="overflow:auto;padding:1rem">
+                    <div class="tree" id="modalTreeView" style="transform-origin:top center;display:flex;justify-content:center"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Agent Info Modal -->
+<div class="modal fade" id="agentInfoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-badge me-2"></i><span id="infoAgentName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="agentInfoBody">
+                <div class="text-center py-4" style="color:var(--text-muted)">加载中...</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('depositModal').addEventListener('show.bs.modal', function(e) {
+    const btn = e.relatedTarget;
+    document.getElementById('depositAgentId').value = btn.dataset.agentId;
+    document.getElementById('depositAgentName').textContent = btn.dataset.agentName;
+});
+
+let modalZoom = 1;
+
+function buildTreeHTML(nodes) {
+    if (!nodes || nodes.length === 0) return '';
+    let html = '<ul>';
+    for (const node of nodes) {
+        html += '<li>';
+        html += `<div class="tree-node" style="cursor:pointer" onclick="showAgentInfoFromTree(${node.id}, '${node.name.replace(/'/g, "\\'")}')">
+            <img src="/static/img/tiers/${node.tier_icon}" alt="${node.tier}">
+            <div class="node-name">${node.name}</div>
+            <div class="node-tier">${node.tier}</div>
+            <div style="font-size:0.7rem;color:var(--text-muted)">${node.username}</div>
+        </div>`;
+        if (node.children && node.children.length > 0) {
+            html += buildTreeHTML(node.children);
+        }
+        html += '</li>';
+    }
+    html += '</ul>';
+    return html;
+}
+
+function zoomTree(delta) {
+    if (delta === 0) modalZoom = 1;
+    else modalZoom = Math.max(0.3, Math.min(2, modalZoom + delta));
+    document.getElementById('modalTreeView').style.transform = `scale(${modalZoom})`;
+}
+
+function showAgentTree(agentId, agentName) {
+    document.getElementById('treeAgentName').textContent = agentName;
+    document.getElementById('modalTreeView').innerHTML = '<div class="text-center py-5" style="color:var(--text-muted)"><div class="spinner-border spinner-border-sm me-2"></div>加载中...</div>';
+    modalZoom = 1;
+
+    const modal = new bootstrap.Modal(document.getElementById('treeModal'));
+    modal.show();
+
+    fetch(`/api/agent/${agentId}/tree`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.length === 0 || (data[0].children && data[0].children.length === 0 && data.length === 1)) {
+                document.getElementById('modalTreeView').innerHTML = buildTreeHTML(data) ||
+                    '<div class="text-center py-5" style="color:var(--text-muted)">该代理暂无下线</div>';
+            } else {
+                document.getElementById('modalTreeView').innerHTML = buildTreeHTML(data);
+            }
+        })
+        .catch(() => {
+            document.getElementById('modalTreeView').innerHTML = '<div class="text-center py-5" style="color:var(--danger)">加载失败</div>';
+        });
+}
+
+function showAgentInfo(agentId, agentName) {
+    document.getElementById('infoAgentName').textContent = agentName;
+    document.getElementById('agentInfoBody').innerHTML = '<div class="text-center py-4" style="color:var(--text-muted)"><div class="spinner-border spinner-border-sm me-2"></div>加载中...</div>';
+    const infoModal = new bootstrap.Modal(document.getElementById('agentInfoModal'));
+    infoModal.show();
+    loadAgentInfo(agentId);
+}
+
+function showAgentInfoFromTree(agentId, agentName) {
+    document.getElementById('infoAgentName').textContent = agentName;
+    document.getElementById('agentInfoBody').innerHTML = '<div class="text-center py-4" style="color:var(--text-muted)"><div class="spinner-border spinner-border-sm me-2"></div>加载中...</div>';
+
+    const treeModalEl = document.getElementById('treeModal');
+    const treeModal = bootstrap.Modal.getInstance(treeModalEl);
+    if (treeModal) treeModal.hide();
+
+    setTimeout(() => {
+        const infoModal = new bootstrap.Modal(document.getElementById('agentInfoModal'));
+        infoModal.show();
+    }, 300);
+
+    loadAgentInfo(agentId);
+}
+
+function loadAgentInfo(agentId) {
+    fetch(`/api/agent/${agentId}/info`)
+        .then(r => r.json())
+        .then(d => {
+            const verified = d.is_verified ? '<span style="color:#10b981"><i class="bi bi-check-circle-fill"></i> 已验证</span>' : '<span style="color:#ef4444"><i class="bi bi-x-circle"></i> 未验证</span>';
+            const active = d.is_active ? '<span class="badge" style="background:rgba(16,185,129,0.15);color:#10b981">活跃</span>' : '<span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444">停用</span>';
+            document.getElementById('agentInfoBody').innerHTML = `
+                <div class="d-flex align-items-center gap-3 mb-4 pb-3" style="border-bottom:1px solid var(--border-color)">
+                    <img src="/static/img/tiers/${d.tier_icon}" style="width:56px;height:56px;border-radius:50%;object-fit:cover">
+                    <div>
+                        <h5 class="fw-bold mb-1">${d.name}</h5>
+                        <span class="tier-badge tier-${d.tier.toLowerCase()}">${d.tier}</span>
+                        ${active}
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">用户名</div><div class="fw-bold">${d.username}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">电话</div><div class="fw-bold">${d.phone}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">邮箱</div><div class="fw-bold">${d.email}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">生日</div><div class="fw-bold">${d.birthday}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">银行</div><div class="fw-bold">${d.bank_name}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">银行户口</div><div class="fw-bold">${d.bank_account}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">货币</div><div class="fw-bold">${d.currency}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">上线代理</div><div class="fw-bold">${d.referrer}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">验证状态</div><div>${verified}</div></div>
+                    <div class="col-md-6"><div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">注册时间</div><div class="fw-bold">${d.created_at}</div></div>
+                </div>
+                <div class="row g-3 mt-1 pt-3" style="border-top:1px solid var(--border-color)">
+                    <div class="col-md-3"><div class="text-center p-3" style="background:var(--bg-main);border-radius:10px"><div style="font-size:1.4rem;font-weight:700;color:var(--gold)">${d.total_deposit.toFixed(2)}</div><div style="font-size:0.78rem;color:var(--text-muted)">累计充值</div></div></div>
+                    <div class="col-md-3"><div class="text-center p-3" style="background:var(--bg-main);border-radius:10px"><div style="font-size:1.4rem;font-weight:700;color:#10b981">${d.total_commission.toFixed(2)}</div><div style="font-size:0.78rem;color:var(--text-muted)">累计佣金</div></div></div>
+                    <div class="col-md-3"><div class="text-center p-3" style="background:var(--bg-main);border-radius:10px"><div style="font-size:1.4rem;font-weight:700">${d.direct_downlines}</div><div style="font-size:0.78rem;color:var(--text-muted)">直属下线</div></div></div>
+                    <div class="col-md-3"><div class="text-center p-3" style="background:var(--bg-main);border-radius:10px"><div style="font-size:1.4rem;font-weight:700">${d.valid_downlines}</div><div style="font-size:0.78rem;color:var(--text-muted)">有效下线</div></div></div>
+                </div>
+                <div class="row g-3 mt-2">
+                    <div class="col-md-4"><div class="d-flex justify-content-between p-3" style="background:var(--bg-main);border-radius:10px"><span style="color:var(--text-muted)">Live Casino 佣金</span><span class="fw-bold" style="color:#17a2b8">${d.live_casino_rate}%</span></div></div>
+                    <div class="col-md-4"><div class="d-flex justify-content-between p-3" style="background:var(--bg-main);border-radius:10px"><span style="color:var(--text-muted)">Slot 佣金</span><span class="fw-bold" style="color:#ffc107">${d.slot_rate}%</span></div></div>
+                    <div class="col-md-4"><div class="d-flex justify-content-between p-3" style="background:var(--bg-main);border-radius:10px"><span style="color:var(--text-muted)">积分</span><span class="fw-bold" style="color:var(--info)">${d.points || 0}</span></div></div>
+                </div>
+                <div class="mt-3 text-end">
+                    <a href="/admin/agents/${d.id}" class="btn btn-primary btn-sm"><i class="bi bi-pencil me-1"></i>编辑代理</a>
+                </div>
+            `;
+        })
+        .catch(() => {
+            document.getElementById('agentInfoBody').innerHTML = '<div class="text-center py-4" style="color:var(--danger)">加载失败</div>';
+        });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}交易记录 - 总管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h4>交易记录</h4>
+        <div class="subtitle">查看所有充值、佣金和奖励记录</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>代理</th>
+                        <th>类型</th>
+                        <th>类别</th>
+                        <th>金额</th>
+                        <th>货币</th>
+                        <th>说明</th>
+                        <th>时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in transactions.items %}
+                    <tr>
+                        <td style="color:var(--text-muted)">#{{ t.id }}</td>
+                        <td class="fw-bold">{{ t.user.name }}</td>
+                        <td>
+                            {% if t.transaction_type == 'deposit' %}
+                            <span class="badge" style="background:rgba(59,130,246,0.15);color:#60a5fa">充值</span>
+                            {% elif t.transaction_type == 'commission' %}
+                            <span class="badge" style="background:rgba(16,185,129,0.15);color:#10b981">佣金</span>
+                            {% elif t.transaction_type == 'bonus' %}
+                            <span class="badge" style="background:rgba(245,158,11,0.15);color:#f59e0b">奖励</span>
+                            {% else %}
+                            <span class="badge" style="background:rgba(255,255,255,0.08);color:var(--text-secondary)">{{ t.transaction_type }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ t.category or '<span style="color:var(--text-muted)">-</span>'|safe }}</td>
+                        <td class="fw-bold" style="color:{% if t.transaction_type == 'deposit' %}var(--info){% else %}var(--success){% endif %}">
+                            {{ "%.2f"|format(t.amount) }}
+                        </td>
+                        <td>{{ t.currency }}</td>
+                        <td style="color:var(--text-secondary);font-size:0.82rem;max-width:200px" class="text-truncate">{{ t.description or '-' }}</td>
+                        <td style="color:var(--text-secondary)">{{ t.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not transactions.items %}
+                    <tr><td colspan="8" class="text-center py-5" style="color:var(--text-muted)">暂无交易记录</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if transactions.pages > 1 %}
+    <div class="card-body border-top d-flex justify-content-center" style="border-color:var(--border-color)!important">
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% for p in transactions.iter_pages() %}
+                {% if p %}
+                <li class="page-item {% if p == transactions.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+                {% endfor %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

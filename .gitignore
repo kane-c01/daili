@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+instance/
+*.pyc
+.DS_Store
+seed_data.py
+会员logo/
+开发手稿.txt
+.cursor/

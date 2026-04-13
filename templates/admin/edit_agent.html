@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}编辑代理 - {{ agent.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <a href="{{ url_for('admin_agents') }}" style="color:var(--text-secondary);text-decoration:none;font-size:0.85rem;display:inline-flex;align-items:center;gap:4px;transition:color 0.2s"
+           onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--text-secondary)'">
+            <i class="bi bi-arrow-left"></i>返回代理列表
+        </a>
+        <h4 class="mt-2">编辑代理 — {{ agent.name }}</h4>
+    </div>
+    {% if agent.tier %}
+    <span class="tier-badge tier-{{ agent.tier.name|lower }}" style="font-size:0.85rem;padding:6px 16px">
+        <img src="{{ url_for('static', filename='img/tiers/' + agent.tier.icon_file) }}" style="width:22px;height:22px">
+        {{ agent.tier.name }}
+    </span>
+    {% endif %}
+</div>
+
+<form method="POST">
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="bi bi-person me-2" style="color:var(--gold)"></i>基本信息</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">用户名</label>
+                            <input type="text" class="form-control" value="{{ agent.username }}" disabled style="opacity:0.5">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">姓名</label>
+                            <input type="text" name="name" class="form-control" value="{{ agent.name }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">生日</label>
+                            <input type="date" name="birthday" class="form-control" value="{{ agent.birthday.strftime('%Y-%m-%d') if agent.birthday else '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">电话</label>
+                            <input type="text" name="phone" class="form-control" value="{{ agent.phone or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">邮箱</label>
+                            <input type="email" name="email" class="form-control" value="{{ agent.email or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">货币</label>
+                            <select name="currency" class="form-select">
+                                {% for c in currencies %}
+                                <option value="{{ c }}" {% if c == agent.currency %}selected{% endif %}>{{ c }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">银行名称</label>
+                            <input type="text" name="bank_name" class="form-control" value="{{ agent.bank_name or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">银行户口</label>
+                            <input type="text" name="bank_account" class="form-control" value="{{ agent.bank_account or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">上线代理</label>
+                            <select name="referrer_id" class="form-select">
+                                <option value="">无（顶级代理）</option>
+                                {% for a in all_agents %}
+                                <option value="{{ a.id }}" {% if agent.referrer_id == a.id %}selected{% endif %}>
+                                    {{ a.name }} ({{ a.username }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">累计充值</label>
+                            <input type="number" name="total_deposit" class="form-control" step="0.01" value="{{ agent.total_deposit }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">会员等级</label>
+                            <select name="tier_id" class="form-select">
+                                {% for t in tiers %}
+                                <option value="{{ t.id }}" {% if agent.tier_id == t.id %}selected{% endif %}>
+                                    {{ t.name }} ({{ t.min_downlines }}-{{ t.max_downlines }}人)
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small style="color:var(--text-muted);font-size:0.78rem">手动设定等级（覆盖自动计算）</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6><i class="bi bi-lock me-2" style="color:var(--gold)"></i>修改密码</h6>
+                </div>
+                <div class="card-body">
+                    <div class="col-md-6">
+                        <label class="form-label">新密码（留空不修改）</label>
+                        <input type="password" name="new_password" class="form-control" placeholder="输入新密码">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="bi bi-toggles me-2" style="color:var(--gold)"></i>状态设置</h6>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="is_active" id="isActive"
+                               {% if agent.is_active %}checked{% endif %}>
+                        <label class="form-check-label" for="isActive">账号启用</label>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="is_verified" id="isVerified"
+                               {% if agent.is_verified %}checked{% endif %}>
+                        <label class="form-check-label" for="isVerified">已验证（真实账户）</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6><i class="bi bi-bar-chart me-2" style="color:var(--gold)"></i>代理信息</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between py-2" style="border-bottom:1px solid var(--border-color)">
+                        <span style="color:var(--text-secondary);font-size:0.85rem">当前等级</span>
+                        <span class="fw-bold" style="font-size:0.85rem">{{ agent.tier.name if agent.tier else '-' }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between py-2" style="border-bottom:1px solid var(--border-color)">
+                        <span style="color:var(--text-secondary);font-size:0.85rem">有效下线</span>
+                        <span class="fw-bold" style="font-size:0.85rem;color:var(--gold)">{{ agent.get_valid_downline_count() }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between py-2">
+                        <span style="color:var(--text-secondary);font-size:0.85rem">注册时间</span>
+                        <span style="font-size:0.85rem">{{ agent.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 mt-4 py-2">
+                <i class="bi bi-check-lg me-2"></i>保存修改
+            </button>
+        </div>
+    </div>
+</form>
+{% endblock %}

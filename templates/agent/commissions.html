@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}佣金报表 - 代理后台{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h4>佣金报表</h4>
+        <div class="subtitle">累计佣金: <span class="fw-bold" style="color:var(--success);font-size:1rem">{{ "%.2f"|format(total) }} {{ current_user.currency }}</span></div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>来源</th>
+                        <th>类别</th>
+                        <th>流水金额</th>
+                        <th>比例</th>
+                        <th>佣金</th>
+                        <th>货币</th>
+                        <th>时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in commissions.items %}
+                    <tr>
+                        <td class="fw-bold">{{ c.from_user.name }}</td>
+                        <td>
+                            {% if c.category == 'live_casino' %}
+                            <span class="badge" style="background:rgba(59,130,246,0.15);color:#60a5fa">Live Casino</span>
+                            {% else %}
+                            <span class="badge" style="background:rgba(245,158,11,0.15);color:#f59e0b">Slot</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ "%.2f"|format(c.turnover_amount) }}</td>
+                        <td style="color:var(--gold)">{{ c.rate }}%</td>
+                        <td class="fw-bold" style="color:var(--success)">+{{ "%.2f"|format(c.amount) }}</td>
+                        <td>{{ c.currency }}</td>
+                        <td style="color:var(--text-secondary)">{{ c.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not commissions.items %}
+                    <tr><td colspan="7" class="text-center py-5" style="color:var(--text-muted)">暂无佣金记录</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if commissions.pages > 1 %}
+    <div class="card-body border-top d-flex justify-content-center" style="border-color:var(--border-color)!important">
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% for p in commissions.iter_pages() %}
+                {% if p %}
+                <li class="page-item {% if p == commissions.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+                {% endfor %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

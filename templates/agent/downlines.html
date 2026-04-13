@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}我的下线 - 代理后台{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h4>我的下线</h4>
+        <div class="subtitle">直属下线 <span class="fw-bold" style="color:var(--gold)">{{ direct|length }}</span> 人 · 全部下线 <span class="fw-bold" style="color:var(--gold)">{{ all_downlines|length }}</span> 人</div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h6><i class="bi bi-person-plus me-2" style="color:var(--gold)"></i>直属下线</h6>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>姓名</th>
+                        <th>等级</th>
+                        <th>累计充值</th>
+                        <th>已验证</th>
+                        <th>其下线数</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in direct %}
+                    <tr>
+                        <td>
+                            <div class="fw-bold" style="font-size:0.88rem">{{ d.name }}</div>
+                            <small style="color:var(--text-muted)">{{ d.username }}</small>
+                        </td>
+                        <td>
+                            {% if d.tier %}
+                            <span class="tier-badge tier-{{ d.tier.name|lower }}">
+                                <img src="{{ url_for('static', filename='img/tiers/' + d.tier.icon_file) }}">
+                                {{ d.tier.name }}
+                            </span>
+                            {% else %}
+                            <span style="color:var(--text-muted)">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ "%.2f"|format(d.total_deposit) }} {{ d.currency }}</td>
+                        <td>
+                            {% if d.is_verified %}
+                            <i class="bi bi-check-circle-fill" style="color:var(--success)"></i>
+                            {% else %}
+                            <i class="bi bi-x-circle" style="color:var(--danger)"></i>
+                            {% endif %}
+                        </td>
+                        <td><span class="fw-bold" style="color:var(--gold)">{{ d.get_valid_downline_count() }}</span></td>
+                        <td>
+                            {% if d.is_active %}
+                            <span class="badge" style="background:rgba(16,185,129,0.15);color:#10b981">活跃</span>
+                            {% else %}
+                            <span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444">停用</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not direct %}
+                    <tr><td colspan="6" class="text-center py-5" style="color:var(--text-muted)">暂无直属下线</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h6><i class="bi bi-diagram-3 me-2" style="color:var(--gold)"></i>全部下线（含间接）</h6>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>姓名</th>
+                        <th>等级</th>
+                        <th>上线</th>
+                        <th>累计充值</th>
+                        <th>已验证</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in all_downlines %}
+                    <tr>
+                        <td>
+                            <div class="fw-bold" style="font-size:0.88rem">{{ d.name }}</div>
+                            <small style="color:var(--text-muted)">{{ d.username }}</small>
+                        </td>
+                        <td>
+                            {% if d.tier %}
+                            <span class="tier-badge tier-{{ d.tier.name|lower }}">
+                                <img src="{{ url_for('static', filename='img/tiers/' + d.tier.icon_file) }}">
+                                {{ d.tier.name }}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>{{ d.referrer.name if d.referrer else '-' }}</td>
+                        <td>{{ "%.2f"|format(d.total_deposit) }} {{ d.currency }}</td>
+                        <td>
+                            {% if d.is_verified %}
+                            <i class="bi bi-check-circle-fill" style="color:var(--success)"></i>
+                            {% else %}
+                            <i class="bi bi-x-circle" style="color:var(--danger)"></i>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if d.is_active %}
+                            <span class="badge" style="background:rgba(16,185,129,0.15);color:#10b981">活跃</span>
+                            {% else %}
+                            <span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444">停用</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not all_downlines %}
+                    <tr><td colspan="6" class="text-center py-5" style="color:var(--text-muted)">暂无下线</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

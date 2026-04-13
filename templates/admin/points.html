@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}积分管理 - 总管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h4>积分管理</h4>
+        <div class="subtitle">为代理发放或扣除积分</div>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#adjustModal">
+        <i class="bi bi-plus-lg me-1"></i>调整积分
+    </button>
+</div>
+
+<!-- Agent Points Overview -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h6><i class="bi bi-people me-2" style="color:var(--gold)"></i>代理积分概览</h6>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>代理</th>
+                        <th>等级</th>
+                        <th>当前积分</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for agent in agents %}
+                    {% if agent.points > 0 %}
+                    <tr>
+                        <td>
+                            <div class="fw-bold" style="font-size:0.9rem">{{ agent.name }}</div>
+                            <div style="font-size:0.78rem;color:var(--text-muted)">{{ agent.username }}</div>
+                        </td>
+                        <td>
+                            <span class="tier-badge tier-{{ (agent.tier.name if agent.tier else 'classic')|lower }}">
+                                {{ agent.tier.name if agent.tier else 'Classic' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span style="font-size:1.2rem;font-weight:800;color:var(--gold)">{{ agent.points }}</span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm" onclick="quickAdjust({{ agent.id }}, '{{ agent.name }}')"
+                                    style="border:1px solid var(--border-color);color:var(--text-secondary);padding:0.25rem 0.6rem;border-radius:8px;font-size:0.82rem">
+                                <i class="bi bi-pencil me-1" style="font-size:0.75rem"></i>调整
+                            </button>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction History -->
+<div class="card">
+    <div class="card-header">
+        <h6><i class="bi bi-clock-history me-2" style="color:var(--gold)"></i>积分记录</h6>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>代理</th>
+                        <th>类型</th>
+                        <th>积分变动</th>
+                        <th>余额</th>
+                        <th>说明</th>
+                        <th>时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in transactions.items %}
+                    <tr>
+                        <td>{{ t.user.name }}</td>
+                        <td>
+                            {% if t.transaction_type == 'admin_add' %}
+                            <span class="badge" style="background:rgba(16,185,129,0.15);color:#10b981">发放</span>
+                            {% elif t.transaction_type == 'admin_deduct' %}
+                            <span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444">扣除</span>
+                            {% elif t.transaction_type == 'redeem' %}
+                            <span class="badge" style="background:rgba(59,130,246,0.15);color:#3b82f6">兑换</span>
+                            {% else %}
+                            <span class="badge" style="background:rgba(212,175,55,0.15);color:var(--gold)">获得</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="fw-bold" style="color:{{ 'var(--success)' if t.points > 0 else 'var(--danger)' }}">
+                                {{ '+' if t.points > 0 else '' }}{{ t.points }}
+                            </span>
+                        </td>
+                        <td>{{ t.balance_after }}</td>
+                        <td style="font-size:0.85rem;color:var(--text-secondary)">{{ t.description or '-' }}</td>
+                        <td style="font-size:0.85rem;color:var(--text-muted)">{{ t.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not transactions.items %}
+                    <tr><td colspan="6" class="text-center py-5" style="color:var(--text-muted)">暂无积分记录</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if transactions.pages > 1 %}
+    <div class="card-body border-top d-flex justify-content-center" style="border-color:var(--border-color)!important">
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% for p in transactions.iter_pages() %}
+                {% if p %}
+                <li class="page-item {% if p == transactions.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+                {% endfor %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Adjust Points Modal -->
+<div class="modal fade" id="adjustModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">调整积分</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin_adjust_points') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">选择代理</label>
+                        <select name="agent_id" class="form-select" id="adjustAgentSelect" required>
+                            <option value="">选择代理...</option>
+                            {% for a in agents %}
+                            <option value="{{ a.id }}">{{ a.name }} ({{ a.username }}) - 当前 {{ a.points }} 积分</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">操作</label>
+                        <select name="action" class="form-select">
+                            <option value="add">发放积分</option>
+                            <option value="deduct">扣除积分</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">积分数量</label>
+                        <input type="number" name="points" class="form-control" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">原因</label>
+                        <input type="text" name="reason" class="form-control" placeholder="可选">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="background:rgba(255,255,255,0.06);border:1px solid var(--border-color);color:var(--text-secondary)">取消</button>
+                    <button type="submit" class="btn btn-primary">确认</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function quickAdjust(agentId, agentName) {
+    document.getElementById('adjustAgentSelect').value = agentId;
+    const modal = new bootstrap.Modal(document.getElementById('adjustModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

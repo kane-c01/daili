@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}关系图 - 代理后台{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tree-wrapper {
+        overflow: auto;
+        padding: 2rem 1rem;
+        min-height: 60vh;
+    }
+
+    .tree-wrapper .tree {
+        display: flex;
+        justify-content: center;
+    }
+
+    .tree ul { display: flex; padding-top: 20px; position: relative; }
+    .tree li { list-style: none; text-align: center; position: relative; padding: 20px 8px 0; }
+
+    .tree-node.is-me {
+        border-color: var(--gold) !important;
+        box-shadow: 0 0 20px rgba(212,175,55,0.2);
+        background: rgba(212,175,55,0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h4>我的关系图</h4>
+        <div class="subtitle">查看您的团队层级结构</div>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-sm" onclick="zoomTree(-0.1)" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-secondary);border-radius:8px;padding:0.35rem 0.6rem"><i class="bi bi-zoom-out"></i></button>
+        <button class="btn btn-sm" onclick="zoomTree(0.1)" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-secondary);border-radius:8px;padding:0.35rem 0.6rem"><i class="bi bi-zoom-in"></i></button>
+        <button class="btn btn-sm" onclick="zoomTree(0)" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-secondary);border-radius:8px;padding:0.35rem 0.6rem"><i class="bi bi-arrow-counterclockwise"></i></button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body tree-wrapper">
+        <div class="tree" id="treeView" style="transform-origin: top center;"></div>
+    </div>
+</div>
+
+<!-- Agent Info Modal -->
+<div class="modal fade" id="agentInfoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-badge me-2"></i><span id="infoAgentName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="agentInfoBody">
+                <div class="text-center py-4" style="color:var(--text-muted)">加载中...</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const treeData = {{ tree_data|safe }};
+let currentZoom = 1;
+const myId = {{ current_user.id }};
+
+function buildTreeHTML(nodes) {
+    if (!nodes || nodes.length === 0) return '';
+    let html = '<ul>';
+    for (const node of nodes) {
+        html += '<li>';
+        const isMe = node.id === myId;
+        html += `<div class="tree-node ${isMe ? 'is-me' : ''}" style="cursor:pointer" onclick="showAgentInfo(${node.id}, '${node.name.replace(/'/g, "\\'")}')">
+            <img src="/static/img/tiers/${node.tier_icon}" alt="${node.tier}">
+            <div class="node-name">${node.name}${isMe ? ' (我)' : ''}</div>
+            <div class="node-tier">${node.tier}</div>
+        </div>`;
+        if (node.children && node.children.length > 0) {
+            html += buildTreeHTML(node.children);
+        }
+        html += '</li>';
+    }
+    html += '</ul>';
+    return html;
+}
+
+function zoomTree(delta) {
+    if (delta === 0) currentZoom = 1;
+    else currentZoom = Math.max(0.3, Math.min(2, currentZoom + delta));
+    document.getElementById('treeView').style.transform = `scale(${currentZoom})`;
+}
+
+function showAgentInfo(agentId, agentName) {
+    document.getElementById('infoAgentName').textContent = agentName;
+    document.getElementById('agentInfoBody').innerHTML = '<div class="text-center py-4" style="color:var(--text-muted)"><div class="spinner-border spinner-border-sm me-2"></div>加载中...</div>';
+    const modal = new bootstrap.Modal(document.getElementById('agentInfoModal'));
+    modal.show();
+
+    fetch(`/api/agent/${agentId}/info`)
+        .then(r => r.json())
+        .then(d => {
+            const verified = d.is_verified ? '<span style="color:#10b981"><i class="bi bi-check-circle-fill"></i> 已验证</span>' : '<span style="color:#ef4444"><i class="bi bi-x-circle"></i> 未验证</span>';
+            document.getElementById('agentInfoBody').innerHTML = `
+                <div class="d-flex align-items-center gap-3 mb-4 pb-3" style="border-bottom:1px solid var(--border-color)">
+                    <img src="/static/img/tiers/${d.tier_icon}" style="width:56px;height:56px;border-radius:50%;object-fit:cover">
+                    <div>
+                        <h5 class="fw-bold mb-1">${d.name}</h5>
+                        <span class="tier-badge tier-${d.tier.toLowerCase()}">${d.tier}</span>
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">用户名</div>
+                        <div class="fw-bold">${d.username}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">货币</div>
+                        <div class="fw-bold">${d.currency}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">上线代理</div>
+                        <div class="fw-bold">${d.referrer}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:3px">验证状态</div>
+                        <div>${verified}</div>
+                    </div>
+                </div>
+                <div class="row g-3 mt-2 pt-3" style="border-top:1px solid var(--border-color)">
+                    <div class="col-md-4">
+                        <div class="text-center p-3" style="background:var(--bg-main);border-radius:10px">
+                            <div style="font-size:1.3rem;font-weight:700">${d.direct_downlines}</div>
+                            <div style="font-size:0.78rem;color:var(--text-muted)">直属下线</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-3" style="background:var(--bg-main);border-radius:10px">
+                            <div style="font-size:1.3rem;font-weight:700">${d.valid_downlines}</div>
+                            <div style="font-size:0.78rem;color:var(--text-muted)">有效下线</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-3" style="background:var(--bg-main);border-radius:10px">
+                            <div style="font-size:1.3rem;font-weight:700;color:#10b981">${d.total_commission.toFixed(2)}</div>
+                            <div style="font-size:0.78rem;color:var(--text-muted)">累计佣金</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        })
+        .catch(() => {
+            document.getElementById('agentInfoBody').innerHTML = '<div class="text-center py-4" style="color:var(--danger)">加载失败</div>';
+        });
+}
+
+document.getElementById('treeView').innerHTML = buildTreeHTML(treeData);
+</script>
+{% endblock %}
