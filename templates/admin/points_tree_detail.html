@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}{{ agent.name }} 的积分关系 - 总管理{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tree-wrapper {
+        overflow: auto;
+        padding: 2rem 1rem;
+        min-height: 60vh;
+    }
+
+    .tree-wrapper .tree {
+        display: flex;
+        justify-content: center;
+    }
+
+    .tree ul { display: flex; padding-top: 20px; position: relative; }
+    .tree li { list-style: none; text-align: center; position: relative; padding: 20px 8px 0; }
+
+    .zoom-controls {
+        display: flex;
+        gap: 6px;
+    }
+
+    .zoom-controls .btn {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        border-radius: 8px;
+        padding: 0.35rem 0.6rem;
+        transition: all 0.2s;
+    }
+
+    .zoom-controls .btn:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+    }
+
+    .points-node {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 12px 16px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        min-width: 130px;
+        transition: all 0.25s;
+        position: relative;
+    }
+
+    .points-node:hover {
+        border-color: var(--gold);
+        box-shadow: 0 4px 20px rgba(212,175,55,0.15);
+        transform: translateY(-2px);
+    }
+
+    .points-node.root-node {
+        border-color: var(--gold);
+        background: linear-gradient(135deg, var(--bg-card) 0%, rgba(212,175,55,0.06) 100%);
+    }
+
+    .points-node img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-bottom: 6px;
+    }
+
+    .points-node .node-name {
+        font-weight: 700;
+        font-size: 0.88rem;
+        margin-bottom: 2px;
+    }
+
+    .points-node .node-user {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+    }
+
+    .points-node .node-points-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+
+    .points-node .node-reward {
+        background: rgba(212,175,55,0.12);
+        color: var(--gold);
+        margin-bottom: 4px;
+    }
+
+    .points-node .node-balance {
+        background: rgba(16,185,129,0.1);
+        color: #10b981;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    .points-node .depth-tag {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: var(--gold);
+        color: #000;
+        font-size: 0.62rem;
+        font-weight: 700;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <a href="{{ url_for('admin_points_tree') }}" style="color:var(--text-muted);text-decoration:none;font-size:0.85rem">
+            <i class="bi bi-arrow-left me-1"></i>返回积分关系图
+        </a>
+        <h4 class="mt-2">{{ agent.name }} 的积分关系</h4>
+        <div class="subtitle">查看该代理的推荐分销成员积分层级</div>
+    </div>
+    <div class="zoom-controls">
+        <button class="btn btn-sm" onclick="zoomTree(-0.1)" title="缩小"><i class="bi bi-zoom-out"></i></button>
+        <button class="btn btn-sm" onclick="zoomTree(0.1)" title="放大"><i class="bi bi-zoom-in"></i></button>
+        <button class="btn btn-sm" onclick="zoomTree(0)" title="重置"><i class="bi bi-arrow-counterclockwise"></i></button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body tree-wrapper" id="treeContainer">
+        <div class="tree" id="treeView" style="transform-origin: top center;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const treeData = {{ tree_data|safe }};
+const rootId = {{ agent.id }};
+let currentZoom = 1;
+
+function buildTreeHTML(nodes) {
+    if (!nodes || nodes.length === 0) return '';
+    let html = '<ul>';
+    for (const node of nodes) {
+        const isRoot = node.id === rootId;
+        html += '<li>';
+        html += `<div class="points-node ${isRoot ? 'root-node' : ''}">
+            <div class="depth-tag">L${node.depth + 1}</div>
+            <img src="/static/img/tiers/${node.tier_icon}" alt="${node.tier}">
+            <div class="node-name">${node.name}</div>
+            <div class="node-user">${node.username} · ${node.tier}</div>
+            <div class="node-points-badge node-reward">
+                <i class="bi bi-coin"></i> 注册奖励 ${node.self_reward}
+            </div>
+            <div class="node-points-badge node-balance">
+                余额 ${node.points}
+            </div>
+        </div>`;
+        if (node.children && node.children.length > 0) {
+            html += buildTreeHTML(node.children);
+        }
+        html += '</li>';
+    }
+    html += '</ul>';
+    return html;
+}
+
+function zoomTree(delta) {
+    if (delta === 0) { currentZoom = 1; }
+    else { currentZoom = Math.max(0.3, Math.min(2, currentZoom + delta)); }
+    document.getElementById('treeView').style.transform = `scale(${currentZoom})`;
+}
+
+document.getElementById('treeView').innerHTML = buildTreeHTML(treeData);
+if (treeData.length === 0) {
+    document.getElementById('treeView').innerHTML = '<div class="text-center py-5" style="color:var(--text-muted)"><i class="bi bi-diagram-3" style="font-size:2rem;display:block;margin-bottom:8px"></i>暂无分销成员</div>';
+}
+</script>
+{% endblock %}

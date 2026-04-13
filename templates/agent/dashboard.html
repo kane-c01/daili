@@ -105,6 +105,27 @@
     </div>
 </div>
 
+{% if wallets %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h6><i class="bi bi-wallet2 me-2" style="color:var(--gold)"></i>我的钱包</h6>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            {% for w in wallets %}
+            <div class="col-md-4">
+                <div class="p-3 text-center" style="background:var(--bg-main);border-radius:12px;border:1px solid var(--border-color)">
+                    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px">{{ w.currency }}</div>
+                    <div style="font-size:1.6rem;font-weight:800;color:var(--gold)">{{ '%.2f'|format(w.balance) }}</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">推荐奖励余额</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% if current_tier %}
 <div class="row g-4 mb-4">
     <div class="col-md-6">

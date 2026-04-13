@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}{{ tier.name }} 等级成员 - 总管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <a href="{{ url_for('admin_dashboard') }}" style="color:var(--text-muted);text-decoration:none;font-size:0.85rem">
+            <i class="bi bi-arrow-left me-1"></i>返回控制台
+        </a>
+        <div class="d-flex align-items-center gap-3 mt-2">
+            <img src="{{ url_for('static', filename='img/tiers/' + tier.icon_file) }}"
+                 style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid rgba(212,175,55,0.2)">
+            <div>
+                <h4 class="mb-0">{{ tier.name }} 等级成员</h4>
+                <div class="subtitle">共 {{ members.total }} 名代理</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>代理</th>
+                        <th>电话</th>
+                        <th>货币</th>
+                        <th>累计充值</th>
+                        <th>积分</th>
+                        <th>上线</th>
+                        <th>状态</th>
+                        <th>注册时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for agent in members.items %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <img src="{{ url_for('static', filename='img/tiers/' + tier.icon_file) }}"
+                                     style="width:28px;height:28px;border-radius:50%;object-fit:cover">
+                                <div>
+                                    <div class="fw-bold" style="font-size:0.88rem">{{ agent.name }}</div>
+                                    <div style="font-size:0.75rem;color:var(--text-muted)">{{ agent.username }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="font-size:0.85rem">{{ agent.phone or '-' }}</td>
+                        <td>
+                            <span class="badge" style="background:rgba(212,175,55,0.1);color:var(--gold);font-size:0.75rem">{{ agent.currency }}</span>
+                        </td>
+                        <td style="font-size:0.88rem;font-weight:600">{{ '%.2f'|format(agent.total_deposit) }}</td>
+                        <td>
+                            <span style="font-weight:700;color:var(--gold)">{{ agent.points }}</span>
+                        </td>
+                        <td style="font-size:0.85rem">{{ agent.referrer.name if agent.referrer else '-' }}</td>
+                        <td>
+                            {% if agent.is_active %}
+                            <span class="badge" style="background:rgba(16,185,129,0.15);color:#10b981">活跃</span>
+                            {% else %}
+                            <span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444">停用</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size:0.82rem;color:var(--text-muted)">{{ agent.created_at.strftime('%Y-%m-%d') }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not members.items %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5" style="color:var(--text-muted)">
+                            该等级暂无成员
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if members.pages > 1 %}
+    <div class="card-body border-top d-flex justify-content-center" style="border-color:var(--border-color)!important">
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% for p in members.iter_pages() %}
+                {% if p %}
+                <li class="page-item {% if p == members.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+                {% endfor %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

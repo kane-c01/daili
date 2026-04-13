@@ -149,6 +149,30 @@ class Gift(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class Wallet(db.Model):
+    __tablename__ = 'wallets'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user = db.relationship('User', backref='wallets')
+    currency = db.Column(db.String(10), nullable=False)
+    balance = db.Column(db.Float, nullable=False, default=0.0)
+
+    __table_args__ = (db.UniqueConstraint('user_id', 'currency', name='uq_wallet_user_currency'),)
+
+
+class WalletTransaction(db.Model):
+    __tablename__ = 'wallet_transactions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    wallet_id = db.Column(db.Integer, db.ForeignKey('wallets.id'), nullable=False)
+    wallet = db.relationship('Wallet', backref='transactions')
+    amount = db.Column(db.Float, nullable=False)
+    balance_after = db.Column(db.Float, nullable=False, default=0.0)
+    description = db.Column(db.String(200), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class PointTransaction(db.Model):
     __tablename__ = 'point_transactions'
 

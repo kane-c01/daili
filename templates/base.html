@@ -750,6 +750,9 @@
             <a class="nav-link {% if request.endpoint == 'admin_points' %}active{% endif %}" href="{{ url_for('admin_points') }}">
                 <i class="bi bi-star"></i><span>积分管理</span>
             </a>
+            <a class="nav-link {% if request.endpoint == 'admin_points_tree' %}active{% endif %}" href="{{ url_for('admin_points_tree') }}">
+                <i class="bi bi-diagram-3"></i><span>积分关系图</span>
+            </a>
         </div>
 
         {% else %}

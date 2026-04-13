@@ -6,7 +6,7 @@ from functools import wraps
 from flask import Flask, render_template, redirect, url_for, flash, request, jsonify, abort
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 
-from models import db, User, Tier, Transaction, Commission, SystemSetting, Gift, PointTransaction
+from models import db, User, Tier, Transaction, Commission, SystemSetting, Gift, PointTransaction, Wallet, WalletTransaction
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24).hex()
@@ -169,6 +169,11 @@ def admin_create_agent():
     )
     agent.set_password(password)
     db.session.add(agent)
+    db.session.flush()
+
+    pts = award_referral_points(agent)
+    award_wallet_referral(agent)
+
     db.session.commit()
 
     if referrer_id:
@@ -176,7 +181,10 @@ def admin_create_agent():
         if referrer:
             update_user_tier(referrer)
 
-    flash(f'代理 {name} 创建成功', 'success')
+    msg = f'代理 {name} 创建成功'
+    if pts > 0:
+        msg += f'，已发放 {pts} 推荐积分'
+    flash(msg, 'success')
     return redirect(url_for('admin_agents'))
 
 
@@ -251,6 +259,19 @@ def admin_toggle_agent(agent_id):
     return redirect(url_for('admin_agents'))
 
 
+@app.route('/admin/tiers/<int:tier_id>/members')
+@login_required
+@admin_required
+def admin_tier_members(tier_id):
+    tier = db.session.get(Tier, tier_id)
+    if not tier:
+        abort(404)
+    page = request.args.get('page', 1, type=int)
+    members = User.query.filter_by(role='agent', tier_id=tier_id)\
+        .order_by(User.created_at.desc()).paginate(page=page, per_page=20)
+    return render_template('admin/tier_members.html', tier=tier, members=members)
+
+
 @app.route('/admin/tiers', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -265,7 +286,6 @@ def admin_tiers():
             t.slot_rate = float(request.form.get(f'{prefix}slot', t.slot_rate))
             t.birthday_bonus = float(request.form.get(f'{prefix}birthday', t.birthday_bonus))
             t.upgrade_bonus = float(request.form.get(f'{prefix}upgrade', t.upgrade_bonus))
-            t.points_rate = float(request.form.get(f'{prefix}points_rate', t.points_rate))
         db.session.commit()
 
         agents = User.query.filter_by(role='agent').all()
@@ -384,16 +404,6 @@ def admin_add_deposit():
             )
             db.session.add(comm_tx)
 
-            if referrer.tier.points_rate > 0:
-                points_earned = int(comm_amount * referrer.tier.points_rate / 100)
-                if points_earned > 0:
-                    referrer.points += points_earned
-                    pt = PointTransaction(
-                        user_id=referrer.id, points=points_earned,
-                        balance_after=referrer.points, transaction_type='earn',
-                        description=f'佣金转积分 ({referrer.tier.points_rate}%): {agent.name} {category}'
-                    )
-                    db.session.add(pt)
 
     db.session.commit()
     update_user_tier(agent)
@@ -473,7 +483,109 @@ def admin_points():
     page = request.args.get('page', 1, type=int)
     transactions = PointTransaction.query.order_by(PointTransaction.created_at.desc()).paginate(page=page, per_page=20)
     agents = User.query.filter_by(role='agent', is_active=True).order_by(User.name).all()
-    return render_template('admin/points.html', transactions=transactions, agents=agents)
+    referral_base = get_setting('referral_base_points', '100')
+    referral_decay = get_setting('referral_decay_rate', '50')
+    wallet_rewards = {c: get_setting(f'referral_reward_{c}', '0') for c in ['MYR', 'AUD', 'SGD']}
+    wallet_decay = get_setting('wallet_decay_rate', '50')
+    return render_template('admin/points.html', transactions=transactions, agents=agents,
+                           referral_base=referral_base, referral_decay=referral_decay,
+                           wallet_rewards=wallet_rewards, wallet_decay=wallet_decay)
+
+
+@app.route('/admin/points/wallet-settings', methods=['POST'])
+@login_required
+@admin_required
+def admin_wallet_settings():
+    for c in ['MYR', 'AUD', 'SGD']:
+        val = request.form.get(f'referral_reward_{c}', '0')
+        key = f'referral_reward_{c}'
+        s = SystemSetting.query.filter_by(key=key).first()
+        if s:
+            s.value = val
+        else:
+            db.session.add(SystemSetting(key=key, value=val))
+    decay = request.form.get('wallet_decay_rate', '50')
+    s = SystemSetting.query.filter_by(key='wallet_decay_rate').first()
+    if s:
+        s.value = decay
+    else:
+        db.session.add(SystemSetting(key='wallet_decay_rate', value=decay))
+    db.session.commit()
+    flash('钱包推荐奖励设置已更新', 'success')
+    return redirect(url_for('admin_points'))
+
+
+@app.route('/admin/points/tree')
+@login_required
+@admin_required
+def admin_points_tree():
+    base = int(get_setting('referral_base_points', '100'))
+    decay = float(get_setting('referral_decay_rate', '50'))
+    top_agents = User.query.filter_by(role='agent', referrer_id=None, is_active=True).all()
+    agents_data = []
+    for a in top_agents:
+        direct_count = User.query.filter_by(referrer_id=a.id, is_active=True).count()
+        all_down = a.get_all_downlines()
+        agents_data.append({
+            'agent': a,
+            'direct_count': direct_count,
+            'total_count': len(all_down),
+        })
+    return render_template('admin/points_tree.html',
+                           agents=agents_data, base=base, decay=decay)
+
+
+@app.route('/admin/points/tree/<int:agent_id>')
+@login_required
+@admin_required
+def admin_points_tree_detail(agent_id):
+    agent = db.session.get(User, agent_id)
+    if not agent or agent.role != 'agent':
+        abort(404)
+    base = int(get_setting('referral_base_points', '100'))
+    decay = float(get_setting('referral_decay_rate', '50'))
+    agent_depth = calc_referral_depth(agent)
+
+    def build_points_tree(user, depth):
+        node = {
+            'id': user.id,
+            'name': user.name,
+            'username': user.username,
+            'tier': user.tier.name if user.tier else 'Classic',
+            'tier_icon': user.tier.icon_file if user.tier else 'classic.jpeg',
+            'points': user.points,
+            'self_reward': base,
+            'depth': depth,
+            'children': []
+        }
+        directs = User.query.filter_by(referrer_id=user.id, is_active=True).all()
+        for d in directs:
+            node['children'].append(build_points_tree(d, depth + 1))
+        return node
+
+    tree_data = [build_points_tree(agent, agent_depth)]
+    return render_template('admin/points_tree_detail.html',
+                           agent=agent,
+                           tree_data=json.dumps(tree_data, ensure_ascii=False),
+                           base=base, decay=decay)
+
+
+@app.route('/admin/points/settings', methods=['POST'])
+@login_required
+@admin_required
+def admin_points_settings():
+    base = request.form.get('referral_base_points', '100')
+    decay = request.form.get('referral_decay_rate', '50')
+
+    for key, val in [('referral_base_points', base), ('referral_decay_rate', decay)]:
+        s = SystemSetting.query.filter_by(key=key).first()
+        if s:
+            s.value = val
+        else:
+            db.session.add(SystemSetting(key=key, value=val))
+    db.session.commit()
+    flash('推荐积分设置已更新', 'success')
+    return redirect(url_for('admin_points'))
 
 
 @app.route('/admin/points/adjust', methods=['POST'])
@@ -542,6 +654,8 @@ def agent_dashboard():
     total_commission = db.session.query(db.func.sum(Commission.amount))\
         .filter_by(agent_id=current_user.id).scalar() or 0
 
+    wallets = Wallet.query.filter_by(user_id=current_user.id).all()
+
     return render_template('agent/dashboard.html',
                            valid_count=valid_count,
                            all_downlines=all_downlines,
@@ -550,7 +664,8 @@ def agent_dashboard():
                            next_tier=next_tier,
                            progress=progress,
                            recent_commissions=recent_commissions,
-                           total_commission=total_commission)
+                           total_commission=total_commission,
+                           wallets=wallets)
 
 
 @app.route('/agent/downlines')
@@ -761,7 +876,132 @@ def init_db():
         for td in tiers_data:
             db.session.add(Tier(**td))
 
+    defaults = {
+        'referral_base_points': ('100', '推荐积分基数（顶级代理获得的积分）'),
+        'referral_decay_rate': ('50', '推荐积分衰减比例 (%)，每深一层获得上一层的此百分比'),
+        'referral_reward_MYR': ('69', '介绍马来西亚客户的推荐奖励（马币）'),
+        'referral_reward_AUD': ('50', '介绍澳洲客户的推荐奖励（澳币）'),
+        'referral_reward_SGD': ('20', '介绍新加坡客户的推荐奖励（新币）'),
+        'wallet_decay_rate': ('50', '钱包推荐奖励衰减比例 (%)，每深一层获得上一层的此百分比'),
+    }
+    for key, (val, desc) in defaults.items():
+        if not SystemSetting.query.filter_by(key=key).first():
+            db.session.add(SystemSetting(key=key, value=val, description=desc))
+
+    gifts_seed = [
+        {'name': '现金奖励 88', 'description': '兑换 88 现金奖励', 'points_required': 100, 'stock': 999, 'sort_order': 1, 'image_url': '/static/images/88.jpeg'},
+        {'name': '现金奖励 388', 'description': '兑换 388 现金奖励', 'points_required': 400, 'stock': 999, 'sort_order': 3, 'image_url': '/static/images/388.jpeg'},
+        {'name': '现金奖励 688', 'description': '兑换 688 现金奖励', 'points_required': 700, 'stock': 999, 'sort_order': 6, 'image_url': '/static/images/688.jpeg'},
+        {'name': '现金奖励 888', 'description': '兑换 888 现金奖励', 'points_required': 900, 'stock': 999, 'sort_order': 8, 'image_url': '/static/images/888.jpeg'},
+        {'name': '现金奖励 1088', 'description': '兑换 1088 现金奖励', 'points_required': 1100, 'stock': 999, 'sort_order': 10, 'image_url': '/static/images/1088.jpeg'},
+    ]
+    for gd in gifts_seed:
+        existing_gift = Gift.query.filter_by(name=gd['name']).first()
+        if existing_gift:
+            if not existing_gift.image_url:
+                existing_gift.image_url = gd['image_url']
+        else:
+            db.session.add(Gift(**gd))
+
     db.session.commit()
+
+
+def get_setting(key, default=None):
+    s = SystemSetting.query.filter_by(key=key).first()
+    return s.value if s else default
+
+
+def calc_referral_depth(user):
+    """Calculate the depth of a user in the referral chain (0 = no referrer)."""
+    depth = 0
+    current = user
+    while current.referrer_id:
+        depth += 1
+        current = db.session.get(User, current.referrer_id)
+        if not current:
+            break
+    return depth
+
+
+def award_referral_points(user):
+    """Award points when a new agent joins.
+
+    The new agent gets the full base points.
+    Each referrer going up the chain gets a decaying bonus.
+    """
+    base = int(get_setting('referral_base_points', '100'))
+    decay = float(get_setting('referral_decay_rate', '50'))
+
+    user.points += base
+    pt = PointTransaction(
+        user_id=user.id, points=base,
+        balance_after=user.points, transaction_type='earn',
+        description=f'注册奖励（{base}积分）'
+    )
+    db.session.add(pt)
+
+    level = 1
+    current = user
+    while current.referrer_id:
+        referrer = db.session.get(User, current.referrer_id)
+        if not referrer:
+            break
+        bonus = int(base * (decay / 100) ** level)
+        if bonus <= 0:
+            break
+        referrer.points += bonus
+        rpt = PointTransaction(
+            user_id=referrer.id, points=bonus,
+            balance_after=referrer.points, transaction_type='earn',
+            description=f'下线 {user.name} 注册，第{level}层推荐奖励（{bonus}积分）'
+        )
+        db.session.add(rpt)
+        level += 1
+        current = referrer
+
+    return base
+
+
+def get_or_create_wallet(user_id, currency):
+    """Get existing wallet or create a new one."""
+    w = Wallet.query.filter_by(user_id=user_id, currency=currency).first()
+    if not w:
+        w = Wallet(user_id=user_id, currency=currency, balance=0.0)
+        db.session.add(w)
+        db.session.flush()
+    return w
+
+
+def award_wallet_referral(new_agent):
+    """Award multi-currency wallet rewards up the referral chain when a new agent joins."""
+    currency = new_agent.currency
+    reward_key = f'referral_reward_{currency}'
+    base_reward = float(get_setting(reward_key, '0'))
+    decay = float(get_setting('wallet_decay_rate', '50'))
+
+    if base_reward <= 0:
+        return
+
+    level = 0
+    current = new_agent
+    while current.referrer_id:
+        referrer = db.session.get(User, current.referrer_id)
+        if not referrer:
+            break
+        amount = base_reward * (decay / 100) ** level
+        if amount < 0.01:
+            break
+        amount = round(amount, 2)
+        wallet = get_or_create_wallet(referrer.id, currency)
+        wallet.balance += amount
+        wt = WalletTransaction(
+            wallet_id=wallet.id, amount=amount,
+            balance_after=wallet.balance,
+            description=f'下线 {new_agent.name} 注册（{currency}），第{level + 1}层推荐奖励'
+        )
+        db.session.add(wt)
+        level += 1
+        current = referrer
 
 
 with app.app_context():

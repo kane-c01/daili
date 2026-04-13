@@ -80,7 +80,7 @@
             </div>
             <div class="card-body">
                 {% for item in tier_stats %}
-                <div class="d-flex align-items-center mb-3 {% if not loop.last %}pb-3{% endif %}" {% if not loop.last %}style="border-bottom:1px solid var(--border-color)"{% endif %}>
+                <a href="{{ url_for('admin_tier_members', tier_id=item.tier.id) }}" class="d-flex align-items-center mb-3 {% if not loop.last %}pb-3{% endif %}" style="text-decoration:none;color:inherit;cursor:pointer;border-radius:10px;padding:6px 8px;margin:-6px -8px;margin-bottom:0.75rem;transition:background 0.2s;{% if not loop.last %}border-bottom:1px solid var(--border-color);{% endif %}" onmouseover="this.style.background='rgba(212,175,55,0.06)'" onmouseout="this.style.background='transparent'">
                     <img src="{{ url_for('static', filename='img/tiers/' + item.tier.icon_file) }}"
                          style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid rgba(212,175,55,0.15)" class="me-3">
                     <div class="flex-grow-1">
@@ -88,13 +88,14 @@
                             <span class="fw-bold" style="font-size:0.9rem">{{ item.tier.name }}</span>
                             <span style="color:var(--text-secondary);font-size:0.82rem">
                                 {{ item.count }} <span style="color:var(--text-muted)">人</span>
+                                <i class="bi bi-chevron-right ms-1" style="font-size:0.7rem;color:var(--text-muted)"></i>
                             </span>
                         </div>
                         <div class="progress" style="height:6px">
                             <div class="progress-bar" style="width:{{ (item.count / total_agents * 100) if total_agents > 0 else 0 }}%"></div>
                         </div>
                     </div>
-                </div>
+                </a>
                 {% endfor %}
             </div>
         </div>
